@@ -1,0 +1,37 @@
+{
+    "name": "Alice", 
+    "surname": "Johnson",
+    "city": "London",
+    "hui": {
+        "hui": "hui",
+        "hui2": {
+            "eb": "hui",
+            "ebat": "ahuet",
+            "ahuet": 
+            [
+                "huilo"
+            ]
+        }
+    },
+    "country": "United Kingdom",
+    "occupation": "Software Engineer",
+    "favorite_color": "Blue",
+    "favorite_food": "Pasta",
+    "hobby": "Hiking",
+    "pet": "Dog",
+    "car_brand": "Toyota",
+    "car_model": "Corolla",
+    "language_primary": "English",
+    "language_secondary": "Spanish",
+    "os": "Linux",
+    "time": -119846834367953,
+    "hello": -32.8,
+    "working": true,
+    "distribution": "Debian",
+    "window_manager": "sway",
+    "editor": "nvim",
+    "shell": "zsh",
+    "timezone": "UTC",
+    "status": "active",
+    "married": false
+}

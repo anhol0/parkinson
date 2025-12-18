@@ -1,0 +1,36 @@
+{
+    "var1": "okay",
+    "var2": {
+        "var3": [
+            "hello",
+            123,
+            true,
+            {
+                "var4": "hui",
+                "var5": [
+                    [
+                        "another fucking array",
+                        {
+                            "var6": "and object"
+                        }
+                    ],
+                    "helloworld",
+                    18,
+                    4985786.92
+                ]
+            },
+            null,
+            18973
+        ],
+        "var7": "whooo and in the var2 object again"
+    },
+    "var8": {
+        "var9": "and again on the top level",
+        "var10": [
+            "wait",
+            "not",
+            "another",
+            "array..."
+        ]
+    }
+}
