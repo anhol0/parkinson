@@ -9,7 +9,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
     char ch;
    
     int line = 1;
-    bool writingArray = false;
+    int character = 0;
     parserState parserState = WAITING_FOR_OBJECT;
     JsonObject* currentObject = &object;
     JsonArray* currentArray = nullptr;
@@ -23,7 +23,9 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
     while(fileStream.get(ch)) {
         if(ch == '\n') {
             line++;
+            character = 0;
         }
+        character++;
         switch (parserState) {
             // BEGINNING OF THE OBJECT PARSING
             case WAITING_FOR_OBJECT: {
@@ -32,9 +34,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                     parserState = BEGIN_KEY;
                 }
                 else {
-                    code.returnCode = PARSE_ERR_INCORRECT_OBJECT_START;
-                    code.message = "Incorrect beginning of the object";
-                    code.lineNumber = line;
+                    constructExitCode(code, PARSE_ERR_INCORRECT_OBJECT_START, "PARSE_ERR_INCORRECT_OBJECT_START", line, character);
                     fileStream.close();
                     return 0;
                 }
@@ -51,10 +51,8 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                 }
                 else if(isWhiteSpace(ch)) 
                     continue;
-                else { 
-                    code.returnCode = PARSE_ERR_INCORRECT_KEY_DECLARATION;
-                    code.message = "Incorrect key declaration";
-                    code.lineNumber = line;
+                else {
+                    constructExitCode(code, PARSE_ERR_INCORRECT_KEY_DECLARATION, "PARSE_ERR_INCORRECT_KEY_DECLARATION", line, character);
                     fileStream.close();
                     return 0;
                 }
@@ -77,9 +75,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                 } else if(isWhiteSpace(ch)) {
                     continue;
                 } else {
-                    code.returnCode = PARSE_ERR_INCORRECT_KEY_VALUE_SEPARATOR;
-                    code.message = "Incorrect key-value separator";
-                    code.lineNumber = line;
+                    constructExitCode(code, PARSE_ERR_INCORRECT_KEY_VALUE_SEPARATOR, "PARSE_ERR_INCORRECT_KEY_VALUE_SEPARATOR", line, character);
                     fileStream.close();
                     return 0;
                 }
@@ -92,9 +88,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                 int retCode = detectValueType(ch, type);
                 if(retCode == -1) {
                     std::cout << ch << std::endl;
-                    code.returnCode = PARSE_ERR_INCORRECT_VALUE_TYPE;
-                    code.message = "Incorrect type of the value";
-                    code.lineNumber = line;
+                    constructExitCode(code, PARSE_ERR_INCORRECT_VALUE_TYPE, "PARSE_ERR_INCORRECT_VALUE_TYPE", line, character);
                     return 0;
                 }
                 if(type == JSON_NUMBER) tmpVal += ch;
@@ -111,7 +105,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                             JsonValue v;
                             v.type = type;
                             v.value = tmpVal;
-                            if(writingArray) {
+                            if(currentArray != nullptr && currentObject->parentArray != currentArray) {
                                 currentArray->data.push_back(std::move(v));
                             } else {
                                 currentObject->data.emplace(key, std::move(v));
@@ -139,13 +133,13 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                                 v.value = numValue;    
                             }
                             // Writing the value in the specific data structure
-                            if(writingArray) {
+                            if(currentArray != nullptr) {
                                 currentArray->data.push_back(std::move(v));
                             } else { 
                                 currentObject->data.emplace(key, std::move(v));
                             }
                             // Deciding on what to do with parser state when data is written
-                            if(writingArray) {
+                            if(currentArray != nullptr) {
                                 if(ch == ',') parserState = BEGIN_VALUE;
                                 if(isWhiteSpace(ch)) continue;
                             } else {
@@ -156,9 +150,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                             tmpVal.clear();
                         } else {
                             if(!isNumber(ch)) {
-                                code.returnCode = PARSE_ERR_INCORRECT_NUMBER_DEFINITION;
-                                code.message  = "Number definition is incorrect";
-                                code.lineNumber = line;
+                                constructExitCode(code, PARSE_ERR_INCORRECT_NUMBER_DEFINITION, "PARSE_ERR_INCORRECT_NUMBER_DEFINITION", line, character);
                                 fileStream.close(); 
                                 return 0;
                             }
@@ -171,26 +163,29 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                         if(isWhiteSpace(ch) || ch == ',') {
                             JsonValue v;
                             v.type = type;
+                            // If value in the buffer is "true" make true
                             if(tmpVal == std::string("true")) {
                                 v.value = true;
-                            } 
+                            }
+                            // If value in buffer is "false" make false
                             else if(tmpVal == std::string("false")) {
                                 v.value = false;
-                            } else {
-                                code.returnCode = PARSE_ERR_INCORRECT_BOOL_DEFINITION;
-                                code.message = "Invalid definition of the boolean value";
-                                code.lineNumber = line;
+                            }
+                            // If neither - throw an error
+                            else {
+                                constructExitCode(code, PARSE_ERR_INCORRECT_BOOL_DEFINITION, "PARSE_ERR_INCORRECT_BOOL_DEFINITION", line, character);
                                 fileStream.close();
                                 return 0;
                             }
-                            if(writingArray) {
-                                currentArray->data.push_back(std::move(v));
-                                if(isWhiteSpace(ch)) continue;
+                            // Deciding where to write - array of the object
+                            if((currentArray != nullptr) && (currentObject->parentArray != currentArray)) { // If parent of the current object is not the current
+                                currentArray->data.push_back(std::move(v));                                 // array then object is on lower level and need to write 
+                                if(isWhiteSpace(ch)) continue;                                              // to the array
                                 if(ch == ',') parserState = BEGIN_VALUE;
                             } else {
-                                currentObject->data.emplace(key, std::move(v));
-                                if(isWhiteSpace(ch)) parserState = VALUE_WRITTEN;
-                                if(ch == ',') parserState = BEGIN_KEY;                           
+                                currentObject->data.emplace(key, std::move(v));                             // If current array context is a null pointer or 
+                                if(isWhiteSpace(ch)) parserState = VALUE_WRITTEN;                           // current object context's parent is a current array
+                                if(ch == ',') parserState = BEGIN_KEY;                                      // context then write to the object
                             }
                             tmpVal.clear();
                             key.clear();
@@ -204,7 +199,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                         JsonValue v;
                         v.type = type;
                         v.value = std::make_unique<JsonObject>();
-                        if(writingArray) {
+                        if(currentArray != nullptr) {
                             auto &insertResult = currentArray->data.emplace_back(std::move(v));
                             auto &objUPtr = std::get<std::unique_ptr<JsonObject>>(insertResult.value);
                             JsonObject* objPtr = objUPtr.get();
@@ -227,7 +222,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                         JsonValue v;
                         v.type = type;
                         v.value = std::make_unique<JsonArray>();
-                        if(writingArray) {
+                        if(currentArray != nullptr) {
                             auto &insertionResult = currentArray->data.emplace_back(std::move(v));
                             auto &arrayUptr = std::get<std::unique_ptr<JsonArray>>(insertionResult.value);
                             JsonArray* arrayPtr = arrayUptr.get();
@@ -244,7 +239,6 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                                 arrayPtr->addParentArray(currentArray);
                             }
                             currentArray = arrayPtr;
-                            writingArray = true;
                             parserState = BEGIN_VALUE;
                         }
                         break; 
@@ -261,10 +255,10 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
             // What to do when the value is written
             case VALUE_WRITTEN: {
                 if(isWhiteSpace(ch)) continue;
-                else if(ch == ',' && !writingArray) {
+                else if(ch == ',' && currentArray == nullptr) {
                     parserState = BEGIN_KEY;
                 }
-                else if(ch == ',' && writingArray) {
+                else if(ch == ',' && currentArray != nullptr) {
                     parserState = BEGIN_VALUE;
                 }
                 else if(ch == ']' && currentArray->parentArray != nullptr) {
@@ -272,13 +266,11 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                 }
                 else if(ch == ']' && currentArray->parentArray == nullptr) {
                     currentArray = nullptr;
-                    writingArray = false;
                     parserState = BEGIN_KEY;
                 }
                 else if(ch == '}') {
                     if(currentObject->parent == nullptr && currentObject->parentArray == nullptr) {
-                        code.returnCode = PARSE_SUCCESS;
-                        code.message = "Parse success";
+                        constructExitCode(code, PARSE_SUCCESS, "PARSE_SUCCESS", 0, 0);
                         std::cout << "Total line count = " << line << "\n----------------------\n";
                         fileStream.close();
                         return 1;
@@ -290,10 +282,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                     }
                 }
                 else {
-
-                    code.returnCode = PARSE_ERR_INCORRECT_VALUE_ENDING;
-                    code.message = "Unknown ending of the value line";
-                    code.lineNumber = line;
+                    constructExitCode(code, PARSE_ERR_INCORRECT_VALUE_ENDING, "PARSE_ERR_INCORRECT_VALUE_ENDING", line, character);
                     fileStream.close();
                     return 0;
                 }
@@ -351,6 +340,17 @@ int detectValueType(char ch, JsonTypes& type) {
            return -1;
     }
     return PARSE_SUCCESS;
+}
+
+void constructExitCode(ParserExitCode &exitStruct, 
+                       JsonParseRetVal code, std::string message,
+                       int lineNumber, int characterNumber)
+{
+    exitStruct.returnCode = code;
+    exitStruct.message = message;
+    exitStruct.lineNumber = lineNumber;
+    exitStruct.characterNumber = characterNumber;
+    return;
 }
 
 int checkStringEnd(char ch) {

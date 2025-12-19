@@ -68,8 +68,8 @@ struct JsonObject {
 
 struct JsonArray {
     std::vector<JsonValue> data;
-    JsonArray* parentArray;
-    JsonObject* parentObject;
+    JsonArray* parentArray = nullptr;
+    JsonObject* parentObject = nullptr;
     void addParentObject(JsonObject* parent) {
         this->parentObject = parent;
     }
@@ -95,7 +95,7 @@ struct JsonValue {
 struct ParserExitCode {
     JsonParseRetVal returnCode;
     std::string message;
-    int lineNumber;
+    int lineNumber, characterNumber;
 };
 
 // --- END JSON DATA STRUCTURES --- 
@@ -110,3 +110,4 @@ int detectValueType(char ch, JsonTypes& type);
 int isWhiteSpace(char ch);
 int checkStringEnd(char ch);
 int isNumber(char ch);
+void constructExitCode(ParserExitCode& exitStruct, JsonParseRetVal code, std::string message, int lineNumber, int characterNumber);
