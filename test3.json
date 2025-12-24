@@ -1,36 +1,7 @@
 {
-    "var1": "okay",
-    "var2": {
-        "var3": [
-            "hello",
-            123,
-            true,
-            {
-                "var4": "hui",
-                "var5": [
-                    [
-                        "another fucking array",
-                        {
-                            "var6": "and object"
-                        }
-                    ],
-                    "helloworld",
-                    18,
-                    4985786.92
-                ]
-            },
-            null,
-            18973
-        ],
-        "var7": "wohooo and in the var2 object again"
+    "var1": {
+        "var2": [ "hello", 123, true, { "var3": "hui", "v1": [ 1, 2, 3, "4", false ] }, 18973],
+        "var4": "wohooo and in the var2 object again"
     },
-    "var8": {
-        "var9": "and again on the top level",
-        "var10": [
-            "wait",
-            "not",
-            "another",
-            "array..."
-        ]
-    }
+    "var5": ["hi", "ergew", true, 14.88, 69, 88]
 }

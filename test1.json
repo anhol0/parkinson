@@ -2,17 +2,6 @@
     "name": "Alice", 
     "surname": "Johnson",
     "city": "London",
-    "hui": {
-        "hui": "hui",
-        "hui2": {
-            "eb": "hui",
-            "ebat": "ahuet",
-            "ahuet": 
-            [
-                "huilo"
-            ]
-        }
-    },
     "country": "United Kingdom",
     "occupation": "Software Engineer",
     "favorite_color": "Blue",

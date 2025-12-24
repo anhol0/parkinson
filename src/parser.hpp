@@ -7,13 +7,13 @@
 #include <vector>
 
 // --- JSON DATA STRUCTURES ---
-
 enum JsonTypes {
-    JSON_NUMBER = 0, // DONE
-    JSON_STRING = 1, // DONE 
-    JSON_BOOL = 2,   // DONE
-    JSON_OBJECT = 3, // IN_PROGRESS
-    JSON_ARRAY = 4   // NOT_STARTED
+    JSON_NUMBER, 
+    JSON_STRING, 
+    JSON_BOOL,   
+    JSON_OBJECT, 
+    JSON_ARRAY,
+    JSON_NULL
 };
 
 enum JsonParseRetVal {
@@ -24,9 +24,11 @@ enum JsonParseRetVal {
     PARSE_ERR_INCORRECT_VALUE_TYPE,
     PARSE_ERR_INCORRECT_NUMBER_DEFINITION,
     PARSE_ERR_INCORRECT_BOOL_DEFINITION,
+    PARSE_ERR_INCORRECT_NULL_VALUE_DEFINITION,
     PARSE_ERR_INCORRECT_VALUE_ENDING,
     PARSE_ERR_INCORRECT_OBJECT_ENDING,
     PARSE_UNHANDLED_ERROR,
+    PARSE_ERR_NULLPTR_PARENT
 };
 
 enum parserState {
@@ -95,7 +97,7 @@ struct JsonValue {
 struct ParserExitCode {
     JsonParseRetVal returnCode;
     std::string message;
-    int lineNumber, characterNumber;
+    int lineNumber = 0, characterNumber = 0;
 };
 
 // --- END JSON DATA STRUCTURES --- 
@@ -110,4 +112,5 @@ int detectValueType(char ch, JsonTypes& type);
 int isWhiteSpace(char ch);
 int checkStringEnd(char ch);
 int isNumber(char ch);
+int isContextArray(JsonArray* aCtx, JsonObject* oCtx);
 void constructExitCode(ParserExitCode& exitStruct, JsonParseRetVal code, std::string message, int lineNumber, int characterNumber);

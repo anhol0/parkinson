@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
     int retCode = parseJson(name, object, code);
 
     if (!retCode) {
-        std::cout << "JSON_PARSE_ERROR_CODE: " << code.message << " on line " << code.lineNumber << "\nExit code: " << code.returnCode << std::endl;
+        std::cout << "JSON_PARSE_ERROR_CODE: " << code.message << " on " << code.lineNumber << ":" << code.characterNumber << "\nExit code: " << code.returnCode << std::endl;
         object.clear();
     } else if (retCode) {
         std::cout << code.message << ": " << code.returnCode << std::endl;
