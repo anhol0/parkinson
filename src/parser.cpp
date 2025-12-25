@@ -28,7 +28,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
         }
         character++;
     
-        if((parserState != WRITE_VALUE && parserState != WAITING_FOR_OBJECT) && isWhiteSpace(ch)) {
+        if((parserState != WRITE_VALUE) && isWhiteSpace(ch)) {
            continue; 
         }
 
@@ -80,16 +80,63 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
             }
             // CHECKING VALUE TYPE
             case BEGIN_VALUE: {
-                tmpVal.clear();
                 int retCode = detectValueType(ch, type);
-                if(retCode == -1) {
-                    std::cout << ch << std::endl;
+                if(retCode == -1) { 
                     constructExitCode(code, PARSE_ERR_INCORRECT_VALUE_TYPE, "PARSE_ERR_INCORRECT_VALUE_TYPE", line, character);
                     return 0;
                 }
-                if(type == JSON_NUMBER) tmpVal += ch;
-                else if(type == JSON_BOOL) tmpVal += ch;
-                else if(type == JSON_NULL) tmpVal += ch;
+                if(type == JSON_NUMBER || type == JSON_BOOL || type == JSON_NULL) {
+                    tmpVal += ch;
+                } else if(type == JSON_ARRAY) {
+                    JsonValue v;
+                    v.type = type;
+                    v.value = std::make_unique<JsonArray>();
+                    if(isContextArray(currentArray, currentObject)) {
+                        auto &insertionResult = currentArray->data.emplace_back(std::move(v));
+                        auto &arrayUptr = std::get<std::unique_ptr<JsonArray>>(insertionResult.value);
+                        JsonArray* arrayPtr = arrayUptr.get();
+                        arrayPtr->addParentArray(currentArray);
+                        currentArray = arrayPtr;
+                        currentObject = nullptr;
+                        parserState = BEGIN_VALUE;
+                    } else {
+                        auto insertionResult = currentObject->data.emplace(key, std::move(v));
+                        auto &insertedValue = insertionResult.first->second;
+                        auto &arrayUPtr = std::get<std::unique_ptr<JsonArray>>(insertedValue.value);
+                        JsonArray* arrayPtr = arrayUPtr.get();
+                        arrayPtr->addParentObject(currentObject);
+                        currentArray = arrayPtr;
+                        currentObject = nullptr;
+                        parserState = BEGIN_VALUE;
+                    }
+                    tmpVal.clear();
+                    key.clear();
+                    break;
+                } else if(type == JSON_OBJECT) {
+                    JsonValue v;
+                    v.type = type;
+                    v.value = std::make_unique<JsonObject>();
+                    if(isContextArray(currentArray, currentObject)) {
+                        auto &insertResult = currentArray->data.emplace_back(std::move(v));
+                        auto &objUPtr = std::get<std::unique_ptr<JsonObject>>(insertResult.value);
+                        JsonObject* objPtr = objUPtr.get();
+                        objPtr->addParentArray(currentArray);
+                        currentObject = objPtr;
+                        currentArray = nullptr;
+                        parserState = BEGIN_KEY;
+                    } else {
+                        auto insertResult = currentObject->data.emplace(key, std::move(v));
+                        auto &insertedValue = insertResult.first->second;
+                        auto &objUPtr = std::get<std::unique_ptr<JsonObject>>(insertedValue.value);  
+                        JsonObject* objPtr = objUPtr.get(); 
+                        objPtr->addParentObject(currentObject);
+                        currentObject = objPtr;
+                        parserState = BEGIN_KEY; 
+                    }
+                    tmpVal.clear();
+                    key.clear();
+                    break;
+                }
                 parserState = WRITE_VALUE;
                 break;               
             }
@@ -169,10 +216,10 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                                 return 0;
                             }
                             // Deciding where to write - array of the object
-                            if(isContextArray(currentArray, currentObject)) {         // If parent of the current object is not the current
-                                currentArray->data.push_back(std::move(v));           // array then object is on lower level and need to write 
+                            if(isContextArray(currentArray, currentObject)) {         
+                                currentArray->data.push_back(std::move(v));           
                             } else {
-                                currentObject->data.emplace(key, std::move(v));       // If current array context is a null pointer or 
+                                currentObject->data.emplace(key, std::move(v));       
                             }
                             parserState = VALUE_WRITTEN;
                             tmpVal.clear();
@@ -205,62 +252,12 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                             tmpVal += ch;
                         }
                         break;
-                    }
-                    // --- Setting context to the child (object type) ---
-                    case JSON_OBJECT: {
-                        JsonValue v;
-                        v.type = type;
-                        v.value = std::make_unique<JsonObject>();
-                        if(isContextArray(currentArray, currentObject)) {
-                            auto &insertResult = currentArray->data.emplace_back(std::move(v));
-                            auto &objUPtr = std::get<std::unique_ptr<JsonObject>>(insertResult.value);
-                            JsonObject* objPtr = objUPtr.get();
-                            objPtr->addParentArray(currentArray);
-                            currentObject = objPtr;
-                            parserState = VALUE_WRITTEN;
-                        } else {
-                            auto insertResult = currentObject->data.emplace(key, std::move(v));
-                            auto &insertedValue = insertResult.first->second;
-                            auto &objUPtr = std::get<std::unique_ptr<JsonObject>>(insertedValue.value);  
-                            JsonObject* objPtr = objUPtr.get(); 
-                            objPtr->addParentObject(currentObject);
-                            currentObject = objPtr;
-                            parserState = VALUE_WRITTEN; 
-                        }
-                        break;
-                    }
-                    // --- Writing into array ---
-                    case JSON_ARRAY: {
-                        JsonValue v;
-                        v.type = type;
-                        v.value = std::make_unique<JsonArray>();
-                        if(isContextArray(currentArray, currentObject)) {
-                            auto &insertionResult = currentArray->data.emplace_back(std::move(v));
-                            auto &arrayUptr = std::get<std::unique_ptr<JsonArray>>(insertionResult.value);
-                            JsonArray* arrayPtr = arrayUptr.get();
-                            arrayPtr->addParentArray(currentArray);
-                            currentArray = arrayPtr;
-                            currentObject = nullptr;
-                            parserState = VALUE_WRITTEN;
-                        } else {
-                            auto insertionResult = currentObject->data.emplace(key, std::move(v));
-                            auto &insertedValue = insertionResult.first->second;
-                            auto &arrayUPtr = std::get<std::unique_ptr<JsonArray>>(insertedValue.value);
-                            JsonArray* arrayPtr = arrayUPtr.get();
-                            arrayPtr->addParentObject(currentObject);
-                            if(currentArray != nullptr) {
-                                arrayPtr->addParentArray(currentArray);
-                            }
-                            currentArray = arrayPtr;
-                            currentObject = nullptr;
-                            parserState = VALUE_WRITTEN;
-                        }
-                        break; 
-                    }
+                    } 
                     // --- What to do when the type with unknown case is spotted ---
                     default:
                         std::cout << "Not implemented yet\n";
                         key.clear();
+                        tmpVal.clear();
                         break;
                 }
                 break;
@@ -271,7 +268,8 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
         }
         // If value is written, outside of the switch case it will be checked
         if (parserState == VALUE_WRITTEN) {
-            if(ch == ',' && !isContextArray(currentArray, currentObject)) {
+            if(isWhiteSpace(ch)) continue;
+            else if(ch == ',' && !isContextArray(currentArray, currentObject)) {
                 parserState = BEGIN_KEY;
             }
             else if(ch == ',' && isContextArray(currentArray, currentObject)) {
@@ -283,7 +281,6 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
             else if(ch == ']' && currentArray->parentArray == nullptr) {
                 currentObject = currentArray->parentObject;
                 currentArray = nullptr; 
-                parserState = BEGIN_KEY;
             }
             else if(ch == '}') {
                 if(currentObject->parent == nullptr && currentObject->parentArray == nullptr) {
@@ -296,6 +293,7 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                     currentObject = nullptr;
                 } else {
                     currentObject = currentObject->parent;
+                    currentArray = nullptr;
                 }
             }
             else {
@@ -303,7 +301,6 @@ int parseJson(const char *name, JsonObject& object, ParserExitCode& code) {
                 fileStream.close();
                 return 0;
             }
-            break;
         }
     }
     fileStream.close();
@@ -363,11 +360,11 @@ int detectValueType(char ch, JsonTypes& type) {
 
 int isContextArray(JsonArray *aCtx, JsonObject *oCtx) {
     int isctxarr = aCtx != nullptr && oCtx == nullptr;
-    if(isctxarr) {
-        std::cout << "Context is array\n";
-    } else {
-        std::cout << "Context is object\n";
-    }
+    // if(isctxarr) {
+    //     std::cout << "Context is array\n";
+    // } else {
+    //     std::cout << "Context is object\n";
+    // }
     return isctxarr;
 }
 

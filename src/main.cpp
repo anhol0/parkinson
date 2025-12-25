@@ -1,5 +1,66 @@
 #include "./parser.hpp"
 #include <iostream>
+#include <iterator>
+#include <string>
+#include <variant>
+
+void printValue(const JsonValue& value, int indent = 0);
+
+void printIndent(int indentationLvl) {
+    for(int i = 0; i < indentationLvl; i++) std::cout << "    ";
+}
+
+void printObject(const JsonObject& object, int indent = 0) {
+    std::cout << "{\n";
+    for(auto it = object.data.begin(); it != object.data.end(); ++it) {
+        printIndent(indent + 1);
+        std::cout << "\"" << it->first << "\": ";
+        printValue(it->second, indent + 1);
+        if(std::next(it) != object.data.end()) std::cout << ",";
+        std::cout << "\n";
+    }
+    printIndent(indent);
+    std::cout << "}";
+}
+
+void printArray(const JsonArray& array, int indent = 0) {
+    std::cout << "[\n";
+    for(int i = 0; i < array.data.size(); i++) {
+       printIndent(indent+1);
+       printValue(array.data[i], indent + 1);
+       if(i + 1 != array.data.size()) std::cout << ",";
+       std::cout << "\n";
+    }
+    printIndent(indent);
+    std::cout << "]";
+}
+
+void printValue(const JsonValue& value, int indent) {
+    switch(value.type) {
+        case JSON_STRING:
+            std::cout << "\"" << std::get<std::string>(value.value) << "\""; 
+            break;  
+        case JSON_BOOL:
+            std::cout << std::get<bool>(value.value);
+            break;  
+        case JSON_NUMBER:
+            if(const int* pInt = std::get_if<int>(&value.value)) {
+                std::cout << *pInt;
+            } else {
+                std::cout << std::get<double>(value.value);
+            }
+            break;  
+        case JSON_NULL:
+            std::cout << "null"; 
+            break;  
+        case JSON_OBJECT:
+            printObject(*std::get<std::unique_ptr<JsonObject>>(value.value), indent); 
+            break;  
+        case JSON_ARRAY:
+            printArray(*std::get<std::unique_ptr<JsonArray>>(value.value), indent); 
+            break;  
+    }
+}
 
 int main(int argc, char **argv) {
     if(argc < 2) {
@@ -25,40 +86,9 @@ int main(int argc, char **argv) {
     } else {
         std::cout << "Error is occured during the parsing\n";
     }
-
-    for(auto &x : object.data) {
-        std::cout << x.first << ": ";
-        int type = x.second.type;
-        auto& valueVariant = x.second.value;
-        switch (type) {
-            case JSON_NUMBER: {
-                const int* pIntVal;
-                if((pIntVal = std::get_if<int>(&valueVariant))) {
-                    std::cout << *pIntVal << std::endl;
-                } else {
-                    const double pDoubleVal = std::get<double>(valueVariant);
-                    std::cout << pDoubleVal << std::endl;
-                }
-                break;
-            }
-            case JSON_STRING: {
-                std::cout << std::get<std::string>(valueVariant) << std::endl;
-                break;
-            }
-            case JSON_BOOL: {
-                std::cout << std::get<bool>(valueVariant) << std::endl;
-                break;
-            }
-            case JSON_OBJECT: {
-                if((*(std::get<std::unique_ptr<JsonObject>>(valueVariant).get())).data.size() > 0) {
-                    std::cout << "OBJECT\n";
-                    break;
-                } else {
-                    std::cout << "Error/Empty object\n";
-                }
-            }
-        }
-    } 
+    
+    printObject(object);
+    std::cout << "\n";
 
     return 0;
 }
