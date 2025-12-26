@@ -1,4 +1,6 @@
 #include "./parser.hpp"
+#include <cstddef>
+#include <fstream>
 #include <iostream>
 #include <iterator>
 #include <string>
@@ -25,7 +27,7 @@ void printObject(const JsonObject& object, int indent = 0) {
 
 void printArray(const JsonArray& array, int indent = 0) {
     std::cout << "[\n";
-    for(int i = 0; i < array.data.size(); i++) {
+    for(size_t i = 0; i < array.data.size(); i++) {
        printIndent(indent+1);
        printValue(array.data[i], indent + 1);
        if(i + 1 != array.data.size()) std::cout << ",";
@@ -72,23 +74,36 @@ int main(int argc, char **argv) {
     JsonObject object;
     
     ParserExitCode code;
-    int retCode = parseJson(name, object, code);
-
+    std::ifstream fileStream;
+    fileStream.open(name);
+    int retCode = parseJson(fileStream, object, code);
+    fileStream.close();
     if (!retCode) {
         std::cout << "JSON_PARSE_ERROR_CODE: " << code.message << " on " << code.lineNumber << ":" << code.characterNumber << "\nExit code: " << code.returnCode << std::endl;
         object.clear();
+        return 1;
     } else if (retCode) {
         std::cout << code.message << ": " << code.returnCode << std::endl;
     }
 
-    if(object.data.size() > 0) {
-        std::cout << "Data is correct\n";
-    } else {
-        std::cout << "Error is occured during the parsing\n";
-    }
-    
     printObject(object);
-    std::cout << "\n";
+    std::cout << "\n----------------------\n";
 
+    JsonTypes type;
+    JsonObject *obj;
+    std::string key = "var1";
+    if(object.exists(key)) {
+        if(object.getType(key, type)) {
+            if(type == JSON_OBJECT) {
+                std::cout << "\"" << key << "\": ";
+                object.getObject(key, obj);
+                printObject(*obj);
+                std::cout << "\n";
+                std::cout << obj->exists("var2") << "\n";
+            } else {
+                std::cout << "var1 doesn't contain an object\n";
+            }
+        }
+    }
     return 0;
 }

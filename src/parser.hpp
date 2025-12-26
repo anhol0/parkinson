@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <map>
@@ -27,6 +28,7 @@ enum JsonParseRetVal {
     PARSE_ERR_INCORRECT_NULL_VALUE_DEFINITION,
     PARSE_ERR_INCORRECT_VALUE_ENDING,
     PARSE_ERR_INCORRECT_OBJECT_ENDING,
+    PARSE_ERR_DUPLICATE_ELEMENTS,
     PARSE_UNHANDLED_ERROR,
     PARSE_ERR_NULLPTR_PARENT
 };
@@ -43,12 +45,17 @@ enum parserState {
     VALUE_WRITTEN,   
 };
 
-
 struct JsonValue;
 
 struct JsonObject;
 
 struct JsonArray;
+
+struct ParserExitCode {
+    JsonParseRetVal returnCode;
+    std::string message;
+    int lineNumber = 0, characterNumber = 0;
+};
 
 struct JsonObject {
     JsonObject() = default;
@@ -66,6 +73,15 @@ struct JsonObject {
     void addParentArray(JsonArray* parentArray) {
         this->parentArray = parentArray;
     }
+    bool exists(const std::string &key);
+    bool getType(const std::string &key, JsonTypes &out);
+    bool getString(const std::string &key, std::string &out);
+    bool getInt(const std::string &key, int &out);
+    bool getDouble(const std::string &key, double &out);
+    bool getBool(const std::string &key, bool &out);
+    bool isNull(const std::string &key);
+    bool getObject(const std::string &key, JsonObject *&out);
+    bool getArray(const std::string &key, JsonArray *&out);
 };
 
 struct JsonArray {
@@ -93,16 +109,9 @@ struct JsonValue {
     JsonTypes type;
 };
 
-
-struct ParserExitCode {
-    JsonParseRetVal returnCode;
-    std::string message;
-    int lineNumber = 0, characterNumber = 0;
-};
-
 // --- END JSON DATA STRUCTURES --- 
 
-int parseJson(const char* name, JsonObject& object, ParserExitCode& code);
+int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& code);
 
 // --- Parser itself and misc functions ---
 

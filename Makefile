@@ -1,6 +1,6 @@
 BUILDDIR = ./build
 LDFLAGS = 
-CFLAGS = -g -Wall -Wextra
+CFLAGS = -g -Wall -Wextra -std=c++20
 SOURCEDIR = ./src
 SOURCES = $(SOURCEDIR)/main.cpp $(SOURCEDIR)/parser.cpp
 PROJNAME = parkinson
