@@ -1,18 +1,42 @@
 BUILDDIR = ./build
-LDFLAGS = 
-CFLAGS = -g -Wall -Wextra -std=c++20
 SOURCEDIR = ./src
-SOURCES = $(SOURCEDIR)/main.cpp $(SOURCEDIR)/parser.cpp
-PROJNAME = parkinson
-CC=gcc
+
 CXX=g++
+LDFLAGS = -L$(BUILDDIR) -lparkinson
+CXXGLAGS = -g -Wall -Wextra -std=c++20
 
-all: $(SOURCES)
+LIBSRC = $(SOURCEDIR)/parkinson.cpp
+LIBOBJ = $(BUILDDIR)/parkinson.o
+LIBNAME = libparkinson.a
+
+APPSRC = $(SOURCEDIR)/main.cpp
+APPOBJ = $(BUILDDIR)/app.o
+APPNAME = app
+
+all: lib 
+
+app: $(BUILDDIR)/$(APPNAME)
+
+$(BUILDDIR): 
 	mkdir -p $(BUILDDIR)
-	$(CXX) -o $(BUILDDIR)/$(PROJNAME) $(CFLAGS) $(SOURCES)
 
-run:
-	$(BUILDDIR)/$(PROJNAME) test1.json
+# -- Building library -- 
+
+lib: $(BUILDDIR) $(LIBOBJ)
+	ar rcs $(BUILDDIR)/$(LIBNAME) $(LIBOBJ)
+	rm $(LIBOBJ)
+
+$(LIBOBJ): $(LIBSRC)
+	$(CXX) $(CXXGLAGS) -c $< -o $@
+
+# -- Building test app --
+
+$(BUILDDIR)/$(APPNAME): $(APPOBJ)
+	$(CXX) $(APPOBJ) $(LDFLAGS) -o $@
+	rm $(APPOBJ)
+
+$(APPOBJ): $(APPSRC)
+	$(CXX) $(CXXGLAGS) -c $< -o $@
 
 clean:
 	rm -r $(BUILDDIR)

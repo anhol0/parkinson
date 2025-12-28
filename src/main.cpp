@@ -1,4 +1,4 @@
-#include "./parser.hpp"
+#include "./parkinson.hpp"
 #include <cstddef>
 #include <fstream>
 #include <iostream>
@@ -95,11 +95,11 @@ int main(int argc, char **argv) {
     if(object.exists(key)) {
         if(object.getType(key, type)) {
             if(type == JSON_OBJECT) {
-                std::cout << "\"" << key << "\": ";
-                object.getObject(key, obj);
-                printObject(*obj);
-                std::cout << "\n";
-                std::cout << obj->exists("var2") << "\n";
+                if(object.getObject(key, obj)) {
+                    JsonArray *array;
+                    obj->getArray("var2", array);
+                    printArray(*array);
+                }
             } else {
                 std::cout << "var1 doesn't contain an object\n";
             }
