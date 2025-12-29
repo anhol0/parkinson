@@ -13,6 +13,10 @@ APPSRC = $(SOURCEDIR)/main.cpp
 APPOBJ = $(BUILDDIR)/app.o
 APPNAME = app
 
+TESTSRC = $(SOURCEDIR)/test.cpp
+TESTOBJ = $(BUILDDIR)/test.o
+TESTNAME = test
+
 all: lib 
 
 app: $(BUILDDIR)/$(APPNAME)
@@ -37,6 +41,19 @@ $(BUILDDIR)/$(APPNAME): $(APPOBJ)
 
 $(APPOBJ): $(APPSRC)
 	$(CXX) $(CXXGLAGS) -c $< -o $@
+
+# -- Building and runnng tests --
+
+$(TESTOBJ): $(TESTSRC) 
+	$(CXX) $(CXXGLAGS) -c $< -o $@
+
+$(BUILDDIR)/$(TESTNAME): $(TESTOBJ)
+	$(CXX) $(TESTOBJ) $(LDFLAGS) -o $@
+	rm -rf $(TESTOBJ)
+
+test: $(BUILDDIR)/$(TESTNAME) $(BUILDDIR)/$(LIBNAME)
+	$(BUILDDIR)/$(TESTNAME)
+	rm -rf $(BUILDDIR)/$(TESTNAME)
 
 clean:
 	rm -r $(BUILDDIR)

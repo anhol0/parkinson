@@ -1,11 +1,11 @@
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
 #include <memory>
 #include <string>
 #include <map>
 #include <variant>
 #include <vector>
+#include <istream>
 
 // --- JSON DATA STRUCTURES ---
 enum JsonTypes {
@@ -120,6 +120,6 @@ struct JsonValue {
 // --- END JSON DATA STRUCTURES --- 
 
 // --- Parser itself and misc functions ---
-int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& code);
+int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code);
 
 

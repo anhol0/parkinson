@@ -1,7 +1,7 @@
 #include <cstddef>
-#include <fstream>
 #include <iostream>
 #include <memory>
+#include <istream>
 #include <string>
 #include <utility>
 #include <variant>
@@ -17,7 +17,7 @@ int isNumber(char ch);
 int isContextArray(JsonArray* aCtx, JsonObject* oCtx);
 void constructExitCode(ParserExitCode& exitStruct, JsonParseRetVal code, std::string message, int lineNumber, int characterNumber);
 
-int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& code) {
+int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
     char ch;
    
     int line = 1;
@@ -32,7 +32,7 @@ int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& cod
     std::string tmpVal;
 
     // Reading the stream of data and 
-    while(fileStream.get(ch)) {
+    while(stream.get(ch)) {
         if(ch == '\n') {
             line++;
             character = 1;
@@ -56,15 +56,16 @@ int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& cod
                 else {
                     constructExitCode(code, PARSE_ERR_INCORRECT_OBJECT_START, "PARSE_ERR_INCORRECT_OBJECT_START", line, character);
                     return 0;
-                }
+                } 
                 break;
             }
             // BEGINNING OF KEY WRITING
             case BEGIN_KEY: {
                 if(ch == '"') {
                     parserState = WRITE_KEY;
-                }
-                else {
+                } else if(ch == '}') {
+                    parserState = VALUE_WRITTEN;
+                } else {
                     constructExitCode(code, PARSE_ERR_INCORRECT_KEY_DECLARATION, "PARSE_ERR_INCORRECT_KEY_DECLARATION", line, character);
                     return 0;
                 }
@@ -244,7 +245,7 @@ int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& cod
                         break;
                     }
                     case JSON_NULL: {
-                        if(isWhiteSpace(ch) || ch == ',') {
+                        if(isWhiteSpace(ch) || ch == ',' || ch == ']' || ch == '}') {
                             JsonValue v;
                             v.type = JSON_NULL;
                             if(tmpVal == std::string("null")) {
@@ -266,12 +267,6 @@ int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& cod
                         }
                         break;
                     } 
-                    // --- What to do when the type with unknown case is spotted ---
-                    default:
-                        std::cout << "Not implemented yet\n";
-                        key.clear();
-                        tmpVal.clear();
-                        break;
                 }
                 break;
             }
@@ -298,7 +293,6 @@ int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& cod
             else if(ch == '}') {
                 if(currentObject->parent == nullptr && currentObject->parentArray == nullptr) {
                     constructExitCode(code, PARSE_SUCCESS, "PARSE_SUCCESS", 0, 0);
-                    std::cout << "Total line count = " << line << "\n----------------------\n";
                     return 1;
                 } else if (currentObject->parentArray != nullptr) {
                     currentArray = currentObject->parentArray;
@@ -318,11 +312,6 @@ int parseJson(std::ifstream &fileStream, JsonObject& object, ParserExitCode& cod
 }
 
 // --- Definitions of the misc functions ---
-
-void throwErrSyntax(const char *err) {
-    std::cout << "JSON PARSE ERR: " << err << std::endl;
-    exit(1);
-}
 
 int isWhiteSpace(char ch) {
     if(ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
@@ -370,11 +359,6 @@ int detectValueType(char ch, JsonTypes& type) {
 
 int isContextArray(JsonArray *aCtx, JsonObject *oCtx) {
     int isctxarr = aCtx != nullptr && oCtx == nullptr;
-    // if(isctxarr) {
-    //     std::cout << "Context is array\n";
-    // } else {
-    //     std::cout << "Context is object\n";
-    // }
     return isctxarr;
 }
 
@@ -398,7 +382,6 @@ int checkStringEnd(char ch) {
 }
 
 int isNumber(char ch) {
-//    std::cout << ch << std::endl;
     if((ch >= 0x30 && ch <= 0x39) || ch == 0x2d || ch == 0x2e) return 1;
     else return 0;
 }
