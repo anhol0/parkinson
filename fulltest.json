@@ -1,0 +1,52 @@
+{
+  "string_examples": {
+    "simple": "hello world",
+    "escaped_quotes": "He said: \"Hello!\"",
+    "escaped_backslash": "This is a backslash: \\",
+    "escaped_newline": "Line1\nLine2",
+    "escaped_tab": "Column1\tColumn2",
+    "unicode_bmp": "Latin A: \u0041, Greek alpha: \u03B1, Cyrillic: \u0416",
+    "unicode_supplementary": "Emoji: \ud83d\ude03, Gothic letter: \ud800\udf00"
+  },
+  "number_examples": {
+    "integer": 12345,
+    "negative_integer": -9876,
+    "decimal": 3.14159,
+    "negative_decimal": -2.71828,
+    "exponent": 1e6,
+    "negative_exponent": -2.5e-3
+  },
+  "boolean_examples": {
+    "true_value": true,
+    "false_value": false
+  },
+  "null_example": null,
+  "array_examples": [
+    "string",
+    42,
+    3.14,
+    true,
+    false,
+    null,
+    {"nested_obj": {"a": 1, "b": [1, 2, 3]}},
+    [1, "two", null, {"nested": "obj"}]
+  ],
+  "nested_object_example": {
+    "level1": {
+      "level2": {
+        "level3": {
+          "string": "deep",
+          "number": 999,
+          "boolean": true,
+          "null_value": null,
+          "array": [1,2,3,{"deep_key":"deep_value"}]
+        }
+      }
+    }
+  },
+  "empty_examples": {
+    "empty_object": {},
+    "empty_array": []
+  }
+}
+

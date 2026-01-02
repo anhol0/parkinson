@@ -9,9 +9,9 @@ LIBSRC = $(SOURCEDIR)/parkinson.cpp
 LIBOBJ = $(BUILDDIR)/parkinson.o
 LIBNAME = libparkinson.a
 
-APPSRC = $(SOURCEDIR)/main.cpp
-APPOBJ = $(BUILDDIR)/app.o
-APPNAME = app
+APPSRC = $(SOURCEDIR)/demo.cpp
+APPOBJ = $(BUILDDIR)/demo.o
+APPNAME = demo
 
 TESTSRC = $(SOURCEDIR)/test.cpp
 TESTOBJ = $(BUILDDIR)/test.o
@@ -19,7 +19,7 @@ TESTNAME = test
 
 all: lib 
 
-app: $(BUILDDIR)/$(APPNAME)
+demo: $(BUILDDIR)/$(APPNAME)
 
 $(BUILDDIR): 
 	mkdir -p $(BUILDDIR)
