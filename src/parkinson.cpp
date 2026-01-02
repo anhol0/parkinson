@@ -1,14 +1,28 @@
+#include <cctype>
+#include <cerrno>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <istream>
+#include <sstream>
 #include <string>
+#include <sys/types.h>
+#include <unicode/umachine.h>
+#include <unicode/utf16.h>
+#include <unicode/utf8.h>
 #include <utility>
 #include <variant>
 #include "./parkinson.hpp"
 
 
 // --- Declaration of misc functions ---
+bool processString(std::string &in, std::string &out);
+bool isWhole(const std::string& s);
+bool processNumber(std::string &in);
 void throwErrSyntax(const char *err); 
 int detectValueType(char ch, JsonTypes& type);
 int isWhiteSpace(char ch);
@@ -27,10 +41,10 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
     JsonArray* currentArray = nullptr;
     JsonTypes type; 
     //Key temp string
+    std::string tmpKey;
     std::string key;
     // Temp values of the pair
     std::string tmpVal;
-
     // Reading the stream of data and 
     while(stream.get(ch)) {
         if(ch == '\n') {
@@ -48,6 +62,7 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
         }
 
         switch (parserState) {
+            static bool prevBS = false;
             // BEGINNING OF THE OBJECT PARSING
             case WAITING_FOR_OBJECT: {
                 if(ch == '{') {   
@@ -63,6 +78,7 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
             case BEGIN_KEY: {
                 if(ch == '"') {
                     parserState = WRITE_KEY;
+                    prevBS = false;
                 } else if(ch == '}') {
                     parserState = VALUE_WRITTEN;
                 } else {
@@ -73,15 +89,20 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
             }
             // WRITING THE KEY
             case WRITE_KEY: {
-                if(ch == '"') {
+                if(ch == '"' && !prevBS) { 
                     parserState = KEY_WRITTEN;
+                    if(!processString(tmpKey, key)) {
+                        constructExitCode(code, PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, "PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY", line, character);
+                        return 0;
+                    }
                     if(currentObject->data.contains(key)){
                         constructExitCode(code, PARSE_ERR_DUPLICATE_ELEMENTS, "PARSE_ERR_DUPLICATE_ELEMENTS", line, character);
                         return 0;
                     }
-                }
-                else { 
-                    key += ch;
+                    tmpKey.clear();
+                } else {
+                    tmpKey += ch;
+                    prevBS = (ch == '\\' && !prevBS);
                 }
                 break;
             }
@@ -97,8 +118,21 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
             }
             // CHECKING VALUE TYPE
             case BEGIN_VALUE: {
+                prevBS = false;
                 int retCode = detectValueType(ch, type);
-                if(retCode == -1) { 
+                if(ch == '}') {
+                    constructExitCode(code, PARSER_ERR_COMMA_AFTER_LAST_ELEMENT, "PARSER_ERR_COMMA_AFTER_LAST_ELEMENT", line, character);
+                    return 0;
+                } else if(ch == ']') {
+                    if(type == JSON_ARRAY) {
+                        parserState = VALUE_WRITTEN;
+                        break;
+                    } else {
+                        constructExitCode(code, PARSER_ERR_COMMA_AFTER_LAST_ELEMENT, "PARSER_ERR_COMMA_AFTER_LAST_ELEMENT", line, character);   
+                        return 0;
+                    }
+                }
+                if(retCode == -1) {
                     constructExitCode(code, PARSE_ERR_INCORRECT_VALUE_TYPE, "PARSE_ERR_INCORRECT_VALUE_TYPE", line, character);
                     return 0;
                 }
@@ -162,10 +196,15 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                 switch (type) {
                     // --- Writing string values ---
                     case JSON_STRING: {
-                        if(checkStringEnd(ch)) {
+                        if(checkStringEnd(ch) && !prevBS) {
                             JsonValue v;
                             v.type = type;
-                            v.value = tmpVal;
+                            std::string processed;
+                            if(!processString(tmpVal, processed)) {
+                                constructExitCode(code, PARSE_ERR_INCORRECT_UNICODE_DECLARATION, "PARSE_ERR_INCORRECT_UNICODE_DECLARATION", line, character);
+                                return 0;
+                            }
+                            v.value = processed;
                             if(isContextArray(currentArray, currentObject)) {
                                 currentArray->data.push_back(std::move(v));
                             } else {
@@ -174,25 +213,38 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                             parserState = VALUE_WRITTEN;
                             key.clear();
                             tmpVal.clear();
+                            processed.clear();
                             continue;
                         } else {
                             tmpVal += ch;
+                            prevBS = (ch == '\\' && !prevBS);
                         }
                         break;
                     }
                     // --- Writing number (int/float) values ---
                     case JSON_NUMBER: {
                         if(isWhiteSpace(ch) || ch == ',' || ch == ']' || ch == '}') {
-                            double numValue = std::stod(tmpVal.c_str());
+                            bool success = processNumber(tmpVal);
+                            if(!success) {
+                                constructExitCode(code, PARSE_ERR_INCORRECT_NUMBER_DEFINITION, "PARSE_ERR_INCORRECT_NUMBER_DEFINITION", line, character);
+                                return 0;
+                            }
+                            bool isInt = isWhole(tmpVal);
                             JsonValue v;
                             v.type = type;
-                            // Deciding if number will be double or int
-                            if(static_cast<double>(static_cast<int>(numValue)) == numValue) {
-                                int intNumVal = static_cast<int>(numValue);
-                                v.value = intNumVal;
+                            if(isInt) {
+                                errno = 0;
+                                long long i = std::strtoll(tmpVal.c_str(), nullptr, 10); 
+                                v.value = i; 
                             } else {
-                                v.value = numValue;    
-                            }
+                                double d = std::strtod(tmpVal.c_str(), nullptr);
+                                if(errno == ERANGE && !std::isfinite(d)) {
+                                    constructExitCode(code, PARSE_ERR_NUMBER_OVERFLOW_OR_UNDERFLOW, "PARSE_ERR_NUMBER_OVERFLOW_OR_UNDERFLOW", line, character);
+                                    return 0;
+                                }
+                                v.value = d;
+                            } 
+
                             // Deciding whether to write data to the 
                             // array context or object context
                             if(isContextArray(currentArray, currentObject)) {
@@ -203,11 +255,7 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                             parserState = VALUE_WRITTEN;
                             key.clear();
                             tmpVal.clear();
-                        } else {
-                            if(!isNumber(ch)) {
-                                constructExitCode(code, PARSE_ERR_INCORRECT_NUMBER_DEFINITION, "PARSE_ERR_INCORRECT_NUMBER_DEFINITION", line, character);
-                                return 0;
-                            }
+                        } else { 
                             tmpVal += ch;                           
                         }
                         break;
@@ -277,41 +325,163 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
         // If value is written, outside of the switch case it will be checked
         if (parserState == VALUE_WRITTEN) {
             if(isWhiteSpace(ch)) continue;
-            else if(ch == ',' && !isContextArray(currentArray, currentObject)) {
-                parserState = BEGIN_KEY;
-            }
-            else if(ch == ',' && isContextArray(currentArray, currentObject)) {
-                parserState = BEGIN_VALUE;
-            }
-            else if(ch == ']' && currentArray->parentArray != nullptr) {
-                currentArray = currentArray->parentArray;
-            }
-            else if(ch == ']' && currentArray->parentArray == nullptr) {
-                currentObject = currentArray->parentObject;
-                currentArray = nullptr; 
-            }
-            else if(ch == '}') {
-                if(currentObject->parent == nullptr && currentObject->parentArray == nullptr) {
-                    constructExitCode(code, PARSE_SUCCESS, "PARSE_SUCCESS", 0, 0);
-                    return 1;
-                } else if (currentObject->parentArray != nullptr) {
-                    currentArray = currentObject->parentArray;
-                    currentObject = nullptr;
-                } else {
-                    currentObject = currentObject->parent;
-                    currentArray = nullptr;
+            if(currentArray != nullptr) {
+                if(ch == ',') {
+                    parserState = BEGIN_VALUE;
                 }
-            }
-            else {
+                else if(ch == ']') {
+                    if(currentArray->parentArray != nullptr) {
+                        currentArray = currentArray->parentArray;
+                    } else if(currentArray->parentObject != nullptr) {
+                        currentObject = currentArray->parentObject;
+                        currentArray = nullptr;
+                    } else {
+                        currentArray = nullptr;
+                    }
+                    parserState = VALUE_WRITTEN;
+                } else if(ch == '}') {
+                    constructExitCode(code, PARSE_ERR_INCORRECT_ARRAY_ENDING, "PARSE_ERR_INCORRECT_ARRAY_ENDING", line, character);
+                    return 0; 
+                } else {
+                    constructExitCode(code, PARSE_ERR_INCORRECT_VALUE_ENDING, "PARSE_ERR_INCORRECT_VALUE_ENDING", line, character);
+                    return 0;
+                }
+            } else if(currentObject != nullptr) {
+                if(ch == ',') parserState = BEGIN_KEY;
+                else if(ch == '}') {
+                    if(currentObject->parentArray != nullptr) {
+                        currentArray = currentObject->parentArray;
+                        currentObject = nullptr;
+                    } else if(currentObject->parent != nullptr) {
+                        currentObject = currentObject->parent;
+                    } else {
+                        constructExitCode(code, PARSE_SUCCESS, "PARSE_SUCCESS", 0, 0);
+                        return 1;
+                    }
+                } else if(ch == ']') {
+                    constructExitCode(code, PARSE_ERR_INCORRECT_OBJECT_ENDING, "PARSE_ERR_INCORRECT_OBJECT_ENDING", line, character);
+                    return 0; 
+                } else {
+                    constructExitCode(code, PARSE_ERR_INCORRECT_VALUE_ENDING, "PARSE_ERR_INCORRECT_VALUE_ENDING", line, character);
+                    return 0;
+                } 
+            } else {
                 constructExitCode(code, PARSE_ERR_INCORRECT_VALUE_ENDING, "PARSE_ERR_INCORRECT_VALUE_ENDING", line, character);
                 return 0;
             }
         }
     }
-    return PARSE_UNHANDLED_ERROR;
+    constructExitCode(code, PARSE_ERR_INCORRECT_OBJECT_ENDING, "PARSE_ERR_INCORRECT_OBJECT_ENDING", line, character);
+    return 0;
 }
 
 // --- Definitions of the misc functions ---
+
+bool processNumber(std::string& in) {
+    int i = 0;
+    int size = in.size();
+
+    if(size == 0) return false;
+
+    if(in[i] == '-') {
+        i++;
+    }
+
+    if(i >= size) return false;
+    
+    if(in[i] == '0') {
+        i++;
+        if(i < size && isdigit(in[i])) return false; 
+    } else if(std::isdigit(in[i])) {
+        while(i < size && std::isdigit(in[i])) i++;
+    } else {
+        return false;
+    }
+    
+    if(i < size && in[i] == '.') {
+        i++;
+        if(i >= size || !std::isdigit(in[i])) return false;
+        while(i < size && std::isdigit(in[i])) i++;
+    }
+    
+    if(i < size && (in[i] == 'e' || in[i] == 'E')) {
+        i++;
+        if(i < size && (in[i] == '+' || in[i] == '-')) i++;
+        if(i >= size || !std::isdigit(in[i])) return false;
+        while(i < size && std::isdigit(in[i])) i++;
+    }
+
+    if(i != size) return false; 
+
+    return true;
+}
+
+bool isWhole(const std::string& s) {
+    for(char c: s) {
+        if(c == '.' || c == 'e' || c == 'E') {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool codepointToUTF8S(UChar32 cp, std::string &out) {
+    char buf[5];
+    int32_t i = 0;
+    UBool error = false;
+    U8_APPEND(buf, i, 5, cp, error);
+    if(error) return false;
+    out.append(buf, i);
+    return true;
+}
+
+bool processString(std::string &in, std::string &out) {
+    std::istringstream stream(in);
+    char c;
+
+    UChar32 lead;
+    bool has_lead = false;
+    while(stream.get(c)) {
+        if(c == '\\' && stream.peek() == 'u') {
+            stream.get();
+            char hex[4];
+            for(int i = 0; i < 4; i++) {
+                if(!stream.get(hex[i]) || ! std::isxdigit(hex[i])) return false;
+            }
+            UChar32 cp = std::stoul(std::string(hex, 4), nullptr, 16);
+            if(U16_IS_LEAD(cp)) {
+                if(has_lead) return false;
+                lead = cp;
+                has_lead = true;
+            } else if(U16_IS_TRAIL(cp)) {
+                if(!has_lead) return false;
+                UChar32 cp16 = U16_GET_SUPPLEMENTARY(lead, cp);
+                if(!codepointToUTF8S(cp16, out)) return false;
+                has_lead = false;
+            } else {
+                if(has_lead) return false;
+                if(!codepointToUTF8S(cp, out)) return false;
+            }
+        } else if(c == '\\') {
+            stream.get(c);
+            switch (c) {
+                case '"':  out += '"';  break;
+                case '\\': out += '\\'; break;
+                case '/':  out += '/';  break;
+                case 'b':  out += '\b'; break;
+                case 'f':  out += '\f'; break;
+                case 'n':  out += '\n'; break;
+                case 'r':  out += '\r'; break;
+                case 't':  out += '\t'; break;
+                default: return false;
+            }
+        } else {
+            if(has_lead) return false;
+            out += c;
+        }
+    }
+    return !has_lead;
+}
 
 int isWhiteSpace(char ch) {
     if(ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
@@ -342,6 +512,7 @@ int detectValueType(char ch, JsonTypes& type) {
         case '8':
         case '9':
         case '-':
+        case '.':
            type = JSON_NUMBER;
            break;
         case 't':
@@ -382,7 +553,7 @@ int checkStringEnd(char ch) {
 }
 
 int isNumber(char ch) {
-    if((ch >= 0x30 && ch <= 0x39) || ch == 0x2d || ch == 0x2e) return 1;
+    if((ch >= '0' && ch <= '9') || ch == '-' || ch == '.' || ch == 'e' || ch == '+') return 1;
     else return 0;
 }
 
@@ -401,24 +572,24 @@ bool JsonObject::getType(const std::string &key, JsonTypes &out) {
     return true;
 }
 
-bool JsonObject::getString(const std::string &key, std::string &out) {
+bool JsonObject::get(const std::string &key, std::string &out) {
     auto it = data.find(key);
     if(it == data.end()) return false;
     if(it->second.type != JSON_STRING) return false;
     out = std::get<std::string>(it->second.value);
     return true;
 }
-bool JsonObject::getInt(const std::string &key, int &out) {
+bool JsonObject::get(const std::string &key, long long &out) {
     auto it = data.find(key);
     if(it == data.end()) return false;
     if(it->second.type != JSON_NUMBER) return false;
-    if(int* x = std::get_if<int>(&it->second.value)) {
+    if(long long* x = std::get_if<long long>(&it->second.value)) {
         out = *x;
         return true;
     }
     return false;
 } 
-bool JsonObject::getDouble(const std::string &key, double& out) {
+bool JsonObject::get(const std::string &key, double& out) {
     auto it = data.find(key);
     if(it == data.end()) return false;
     if(it->second.type != JSON_NUMBER) return false;
@@ -428,7 +599,7 @@ bool JsonObject::getDouble(const std::string &key, double& out) {
     }
     return false;   
 } 
-bool JsonObject::getBool(const std::string &key, bool &out) {
+bool JsonObject::get(const std::string &key, bool &out) {
    auto it = data.find(key);
    if(it == data.end()) return false;
    if(it->second.type != JSON_BOOL) return false;
@@ -441,7 +612,7 @@ bool JsonObject::isNull(const std::string &key) {
     if(it->second.type == JSON_NULL) return true;
     return false;
 } 
-bool JsonObject::getObject(const std::string &key, JsonObject *&out) {
+bool JsonObject::get(const std::string &key, JsonObject *&out) {
     auto it = data.find(key);
     if(it == data.end()) return false;
     if(it->second.type != JSON_OBJECT) return false;
@@ -449,7 +620,7 @@ bool JsonObject::getObject(const std::string &key, JsonObject *&out) {
     return true;
 }
 
-bool JsonObject::getArray(const std::string &key, JsonArray *&out) {    
+bool JsonObject::get(const std::string &key, JsonArray *&out) {    
     auto it = data.find(key);
     if(it == data.end()) return false;
     if(it->second.type != JSON_ARRAY) return false;
@@ -465,24 +636,24 @@ bool JsonArray::getType(size_t index, JsonTypes &type) {
     return true;
 }
 
-bool JsonArray::getString(size_t index, std::string &out) {
+bool JsonArray::get(size_t index, std::string &out) {
     if(data.size() - 1 < index) return false; 
     if(data[index].type != JSON_STRING) return false;
     out = std::get<std::string>(data[index].value);
     return true;
 }
 
-bool JsonArray::getInt(size_t index, int &out) {
+bool JsonArray::get(size_t index, long long &out) {
     if(data.size() - 1 < index) return false;
     if(data[index].type != JSON_NUMBER) return false;
-    if(int *x = std::get_if<int>(&data[index].value)) {
+    if(long long *x = std::get_if<long long>(&data[index].value)) {
         out = *x;
         return true;
     }
     return false;
 }
 
-bool JsonArray::getDouble(size_t index, double &out) {
+bool JsonArray::get(size_t index, double &out) {
     if(data.size() - 1 < index) return false;
     if(data[index].type != JSON_NUMBER) return false;
     if(double *x = std::get_if<double>(&data[index].value)) {
@@ -492,7 +663,7 @@ bool JsonArray::getDouble(size_t index, double &out) {
     return false;   
 }
 
-bool JsonArray::getBool(size_t index, bool &out) {
+bool JsonArray::get(size_t index, bool &out) {
     if(data.size() - 1 < index) return false;
     if(data[index].type != JSON_BOOL) return false;
     out = std::get<bool>(data[index].value);
@@ -505,14 +676,14 @@ bool JsonArray::isNull(size_t index) {
    return false;
 }
 
-bool JsonArray::getObject(size_t index, JsonObject *&out) {
+bool JsonArray::get(size_t index, JsonObject *&out) {
     if(data.size() - 1 < index) return false;
     if(data[index].type != JSON_OBJECT) return false;
     out = std::get<std::unique_ptr<JsonObject>>(data[index].value).get();
     return true;
 }
 
-bool JsonArray::getArray(size_t index, JsonArray *&out) {
+bool JsonArray::get(size_t index, JsonArray *&out) {
     if(data.size() - 1 < index) return false;
     if(data[index].type != JSON_ARRAY) return false;
     out = std::get<std::unique_ptr<JsonArray>>(data[index].value).get();

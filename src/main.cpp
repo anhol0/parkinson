@@ -46,7 +46,7 @@ void printValue(const JsonValue& value, int indent) {
             std::cout << std::get<bool>(value.value);
             break;  
         case JSON_NUMBER:
-            if(const int* pInt = std::get_if<int>(&value.value)) {
+            if(const long long* pInt = std::get_if<long long>(&value.value)) {
                 std::cout << *pInt;
             } else {
                 std::cout << std::get<double>(value.value);
@@ -87,23 +87,6 @@ int main(int argc, char **argv) {
     }
 
     printObject(object);
-    std::cout << "\n----------------------\n";
-
-    JsonTypes type;
-    JsonObject *obj;
-    std::string key = "var1";
-    if(object.exists(key)) {
-        if(object.getType(key, type)) {
-            if(type == JSON_OBJECT) {
-                if(object.getObject(key, obj)) {
-                    JsonArray *array;
-                    obj->getArray("var2", array);
-                    printArray(*array);
-                }
-            } else {
-                std::cout << "var1 doesn't contain an object\n";
-            }
-        }
-    }
+    std::cout << "\n----------------------\n"; 
     return 0;
 }

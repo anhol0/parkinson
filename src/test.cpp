@@ -3,16 +3,90 @@
 #include <sstream>
 #include <iostream>
 
+template<typename T> bool runTestObjectGetters(const char* json, const char* name, const std::string& key, const T& expected) { 
+    std::istringstream in(json);
+    JsonObject obj;
+    ParserExitCode code;
+    int ok = parseJson(in, obj, code);
+    if(!ok) {
+        std::cout << name << ": " << "\x1B[91mFAIL\033[0m\n";
+        return false;
+    }
+
+    ok = false;
+
+    if constexpr (std::is_same_v<T, std::string>) {
+        std::string out;
+        ok = obj.get(key, out) && out == expected;
+    } else if constexpr (std::is_same_v<T, long long>) {
+        long long out;
+        ok = obj.get(key, out) && out == expected;
+    } else if constexpr (std::is_same_v<T, double>) {
+        double out;
+        ok = obj.get(key, out) && out == expected;
+    } else if constexpr (std::is_same_v<T, bool>) {
+        bool out;
+        ok = obj.get(key, out) && out == expected;
+    } else if constexpr (std::is_same_v<T, JsonObject*>) {
+        JsonObject* out;
+        ok = obj.get(key, out) && out != nullptr;
+    } else if constexpr (std::is_same_v<T, JsonArray*>) {
+        JsonArray* out;
+        ok = obj.get(key, out) && out != nullptr;
+    }
+
+    std::cout << name << ": " << (ok ? "\x1B[92mPASS\033[0m" : "\x1B[91mFAIL\033[0m") << "\n";
+    return ok;
+
+};
+
+template<typename T> bool runTestArrayGetters(const char* json, const char* name, const int index, const std::string& key, const T& expected) {
+    std::istringstream in(json);
+    JsonObject obj;
+    ParserExitCode code;
+    int ok = parseJson(in, obj, code);
+    if(!ok) {
+        std::cout << name << ": " << "\x1B[91mFAIL\033[0m\n";
+        return false;
+    }
+    JsonArray* arr;
+    if(!obj.get(key, arr)) {
+        std::cout << name << ": failed to get array '" << key << "'\n";
+        return false;
+    }
+    ok = false;
+        if constexpr (std::is_same_v<T, std::string>) {
+        std::string out;
+        ok = arr->get(index, out) && out == expected;
+    } else if constexpr (std::is_same_v<T, long long>) {
+        long long out;
+        ok = arr->get(index, out) && out == expected;
+    } else if constexpr (std::is_same_v<T, double>) {
+        double out;
+        ok = arr->get(index, out) && out == expected;
+    } else if constexpr (std::is_same_v<T, bool>) {
+        bool out;
+        ok = arr->get(index, out) && out == expected;
+    }
+    std::cout << name << ": " << (ok ? "\x1B[92mPASS\033[0m" : "\x1B[91mFAIL\033[0m") << "\n";
+    return ok;
+};
+
 int main(void) {
     // Test quite function
-    auto runTest = [](const char* json, int shouldPass) {
+    auto runTest = [](const char* json, const char* name, JsonParseRetVal retCode, int shouldPass) {
         std::istringstream in(json);
         JsonObject obj;
         ParserExitCode code;
         int ok = parseJson(in, obj, code);
-        std::cout << code.message << std::endl << ok << std::endl;
-        assert(ok == shouldPass);
-        std::cout << "\x1B[92mTest success\033[0m\n";
+        if(ok == shouldPass && code.returnCode == retCode) {
+            std::cout << name << ": " <<"\x1B[92mPASS\033[0m\n";
+            return true;
+        } else {
+            std::cout << code.message << std::endl;
+            std::cout << name << ": " << "\x1B[91mFAIL\033[0m\n";
+            return false;
+        }
     };
 
     // Test data
@@ -51,6 +125,9 @@ int main(void) {
     const char* json_invalid_bool_alt = R"({
         "flag": fals
     })";
+    const char* json_empty_array = R"({
+        "arr": []
+    })";
     const char* json_invalid_array_missing_comma = R"({
         "arr": [1 2, 3]
     })";
@@ -61,21 +138,505 @@ int main(void) {
         "a": 1,
         "a": 2
     })";
+    const char* json_unicode_basic =
+    R"({
+        "text": "Привет мир"
+    })";
+    const char* json_unicode_latin =
+    R"({
+        "text": "Café naïve résumé"
+    })";
+    const char* json_unicode_cjk =
+    R"({
+        "text": "漢字 かな 한글"
+    })";
+    const char* json_unicode_emoji =
+    R"({
+        "emoji": "😀🚀🔥"
+    })";
+    const char* json_unicode_key =
+    R"({
+        "ключ": "значение"
+    })";
+    const char* json_unicode_array =
+    R"({
+        "arr": ["😀", "Привет", "漢字"]
+    })";
+    const char* json_obj_missing_outer =
+    R"({
+        "a": {
+            "b": 1
+        }
+    )";
+    const char* json_obj_missing_inner =
+    R"({
+        "a": {
+            "b": 1
+    )";
+    const char* json_obj_extra_close =
+    R"({
+        "a": 1
+    }}
+    )";
+    const char* json_obj_wrong_close =
+    R"({
+        "a": {
+            "b": 1
+        ]
+    })";
+    const char* json_obj_early_close =
+    R"({
+        "a": {
+            "b": 1
+    })";
+    const char* json_arr_missing_outer =
+    R"({
+        "a": [1, 2, 3
+    })";
+    const char* json_arr_missing_inner =
+    R"({
+        "a": [1, [2, 3]
+    })";
+    const char* json_arr_extra_close =
+    R"({
+        "a": [1, 2]
+    ]]
+    )";
+    const char* json_arr_wrong_close =
+    R"({
+        "a": [1, 2}
+    })";
+    const char* json_arr_early_close =
+    R"({
+        "a": [1, [2, 3]
+    ]
+    )";
+    const char* json_mixed_obj_close_array_open =
+    R"({
+        "a": [
+            { "b": 1 }
+    })";
+    const char* json_mixed_arr_close_obj_open =
+    R"({
+        "a": {
+            "b": [1, 2]
+        ]
+    })";
+    const char* json_mixed_multi_mismatch =
+    R"({
+        "a": [
+            {
+                "b": [1, 2}
+            ]
+        }
+    })";
+    const char* json_nested_valid =
+    R"({
+        "a": {
+            "b": [1, { "c": 2 }, 3]
+        }
+    })";
+    const char* json_num_int = R"({
+        "a": 0,
+        "b": 42,
+        "c": -17
+    })";
     
-    // Valid JSONs
-    runTest(json_empty_object, 1);
-    runTest(json_primitives, 1);
-    runTest(json_mixed_array, 1);
-    runTest(json_nested_object, 1);
+    const char* json_num_big_int = R"({
+        "big": 9223372036854775807,
+        "neg": -9223372036854775808
+    })";
     
-    // Invalid JSONs
-    runTest(json_missing_brace, 0);
-    runTest(json_invalid_number, 0);
-    runTest(json_invalid_number_alt, 0);
-    runTest(json_invalid_bool, 0);
-    runTest(json_invalid_bool_alt, 0);
-    runTest(json_invalid_array_missing_comma, 0);
-    runTest(json_invalid_array_trailing_comma, 0);
-    runTest(json_duplicate_keys, 0);
+    const char* json_num_decimal = R"({
+        "pi": 3.14159,
+        "small": -0.001,
+        "exact": 10.500
+    })";
+    
+    const char* json_num_exp_basic = R"({
+        "a": 1e0,
+        "b": 1e10,
+        "c": -2e3
+    })";
+    
+    const char* json_num_exp_signed = R"({
+        "a": 5e-1,
+        "b": 9e+2,
+        "c": -3e-2
+    })";
+    
+    const char* json_num_exp_decimal = R"({
+        "a": 1.5e2,
+        "b": -3.14e-2,
+        "c": 0.1e1
+    })";
+    
+    const char* json_num_exp_large = R"({
+        "min": 1e-308,
+        "max": 1e308
+    })";
+    
+    const char* json_num_mixed = R"({
+        "i": 10,
+        "d": 3.14,
+        "e": 1e2,
+        "mix": -0.01e-2
+    })";
+    const char* json_num_leading_zero = R"({
+        "bad": 01
+    })";
+    
+    const char* json_num_leading_zero_neg = R"({
+        "bad": -01
+    })";
+    const char* json_num_trailing_dot = R"({
+        "bad": 1.
+    })";
+    
+    const char* json_num_missing_int = R"({
+        "bad": .5
+    })";
+    const char* json_num_exp_missing = R"({
+        "bad": 1e
+    })";
+    
+    const char* json_num_exp_sign_only = R"({
+        "bad": 1e+
+    })";
+    
+    const char* json_num_exp_double = R"({
+        "bad": 1ee10
+    })";
+    
+    const char* json_num_exp_malformed = R"({
+        "bad": 1e+-2
+    })";
+    const char* json_num_double_dot = R"({
+        "bad": 1.2.3
+    })";
+    
+    const char* json_num_double_sign = R"({
+        "bad": --1
+    })";
+    const char* json_num_nan = R"({
+        "bad": NaN
+    })";
+    
+    const char* json_num_inf = R"({
+        "bad": Infinity
+    })";
+    const char* json_num_exp_oob = R"({
+        "badmin": 1e-325,
+        "badmax": 1e325
+    })";
+    // Basic BMP escape
+    const char* json_unicode_escape_basic = R"({
+        "text": "\u0048\u0065\u006C\u006C\u006F"
+    })";
+    
+    // Mixed raw UTF-8 + escapes
+    const char* json_unicode_escape_mixed = R"({
+        "text": "Hello \u0020 World"
+    })";
+    
+    // Cyrillic via escapes
+    const char* json_unicode_escape_cyrillic = R"({
+        "text": "\u041F\u0440\u0438\u0432\u0435\u0442"
+    })";
+    
+    // CJK via escapes
+    const char* json_unicode_escape_cjk = R"({
+        "text": "\u4F60\u597D"
+    })";
+    
+    // Emoji (surrogate pair)
+    const char* json_unicode_escape_emoji = R"({
+        "text": "\uD83D\uDE03"
+    })";
+    
+    // Unicode escape inside array
+    const char* json_unicode_escape_array = R"({
+        "arr": ["\u0041", "\u0042", "\u0043"]
+    })";
+    
+    // Unicode escape as key
+    const char* json_unicode_escape_key = R"({
+        "\u006B\u0065\u0079": "value"
+    })";
+    // Incomplete escape
+    const char* json_unicode_escape_short = R"({
+        "text": "\u123"
+    })";
+    
+    // Non-hex digit
+    const char* json_unicode_escape_nonhex = R"({
+        "text": "\u12X4"
+    })";
+    
+    // Lone high surrogate
+    const char* json_unicode_escape_lone_high = R"({
+        "text": "\uD800"
+    })";
+    
+    // Lone low surrogate
+    const char* json_unicode_escape_lone_low = R"({
+        "text": "\uDC00"
+    })";
+    
+    // Reversed surrogate order
+    const char* json_unicode_escape_reversed = R"({
+        "text": "\uDE03\uD83D"
+    })";
+    
+    // High surrogate not followed by escape
+    const char* json_unicode_escape_high_no_low = R"({
+        "text": "\uD83Dabc"
+    })";
+    
+    // Escape cut off by EOF
+    const char* json_unicode_escape_eof = R"({
+        "text": "\uD83D\uDE0"
+    })";
+    // Simple escaped quote in key
+    const char* json_key_escape_quote = R"({
+        "ke\"y": "value"
+    })";
+    
+    // Backslash in key
+    const char* json_key_escape_backslash = R"({
+        "ke\\y": "value"
+    })";
+    
+    // Forward slash (allowed)
+    const char* json_key_escape_slash = R"({
+        "ke\/y": "value"
+    })";
+    
+    // Control escapes
+    const char* json_key_escape_control = R"({
+        "line\nbreak": "value"
+    })";
+    
+    // Unicode escape (BMP)
+    const char* json_key_unicode_basic = R"({
+        "\u006B\u0065\u0079": "value"
+    })";
+    
+    // Mixed raw UTF-8 + escape
+    const char* json_key_unicode_mixed = R"({
+        "ключ\u0031": "value"
+    })";
+    
+    // Emoji in key (surrogate pair)
+    const char* json_key_unicode_emoji = R"({
+        "\uD83D\uDE03": "smile"
+    })";
+    
+    // Escaped whitespace in key
+    const char* json_key_escape_tab = R"({
+        "tab\tkey": "value"
+    })";
+    // Invalid escape character
+    const char* json_key_escape_invalid = R"({
+        "ke\y": "value"
+    })";
+    
+    // Unicode escape too short
+    const char* json_key_unicode_short = R"({
+        "\u12": "value"
+    })";
+    
+    // Unicode escape non-hex
+    const char* json_key_unicode_nonhex = R"({
+        "\u12X4": "value"
+    })";
+    
+    // Lone high surrogate
+    const char* json_key_unicode_lone_high = R"({
+        "\uD800": "value"
+    })";
+    
+    // Lone low surrogate
+    const char* json_key_unicode_lone_low = R"({
+        "\uDC00": "value"
+    })";
+    
+    // Reversed surrogate pair
+    const char* json_key_unicode_reversed = R"({
+        "\uDE03\uD83D": "value"
+    })";
+    
+    // Escape ends at EOF
+    const char* json_key_escape_eof = R"({
+        "key\uD83D\uDE0"
+    })";
+    
+    // Missing closing quote in key
+    const char* json_key_missing_quote = R"({
+        "key: "value"
+    })";
+    // JSON with escaped backslash
+    const char* json_backslash = R"({"key": "This is a backslash: \\"})";
+    
+    // JSON with escaped quote
+    const char* json_quote = R"({"key":"She said: \"Hello!\""})";
+    
+    // JSON with newline
+    const char* json_newline = R"({"key":"Line1\nLine2"})";
+    
+    // JSON with tab
+    const char* json_tab = R"({"key":"Column1\tColumn2"})";
+    
+    // JSON with Unicode
+    const char* json_unicode = R"({"key":"Unicode: \u0041\u03B1"})"; // 'A' + 'α'
+
+
+
+    int success = 0;
+    int fail = 0;
+
+    runTest(json_empty_object, "empty object", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_primitives, "all primitive types", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_mixed_array, "array with mixed types", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_nested_object, "nested object", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_basic, "unicode basic", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_latin, "unicode latin", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_cjk, "unicode cjk", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_emoji, "unicode emoji", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_key, "unicode key", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_array, "unicode array", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_empty_array, "empty array", PARSE_SUCCESS, 1) ? success++ : fail++;
+    
+    runTest(json_missing_brace, "missing closing brace", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_invalid_number, "invalid number", PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_number_alt, "invalid number alt", PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_bool, "invalid bool", PARSE_ERR_INCORRECT_BOOL_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_bool_alt, "invalid bool alt", PARSE_ERR_INCORRECT_BOOL_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_array_missing_comma, "array missing comma", PARSE_ERR_INCORRECT_VALUE_ENDING, 0) ? success++ : fail++;
+    runTest(json_invalid_array_trailing_comma, "array trailing comma", PARSER_ERR_COMMA_AFTER_LAST_ELEMENT, 0) ? success++ : fail++;
+    runTest(json_duplicate_keys, "duplicate keys", PARSE_ERR_DUPLICATE_ELEMENTS, 0) ? success++ : fail++;
+    
+    runTest(json_obj_missing_outer, "object missing outer brace", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_obj_missing_inner, "object missing inner brace", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_obj_extra_close, "object extra closing brace", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_obj_wrong_close, "object wrong closing type", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_obj_early_close, "object closed too early", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    
+    runTest(json_arr_missing_outer, "array missing outer bracket", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_missing_inner, "array missing inner bracket", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_extra_close, "array extra closing bracket", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_wrong_close, "array wrong closing type", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_early_close, "array closed too early", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    
+    runTest(json_mixed_obj_close_array_open, "object closed while array open", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_mixed_arr_close_obj_open, "array closed while object open", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_mixed_multi_mismatch, "multiple nesting mismatch", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    
+    runTest(json_nested_valid, "proper nested object and array", PARSE_SUCCESS, 1) ? success++ : fail++;
+    
+    // ---- VALID NUMBERS ----
+    runTest(json_num_int,             "json_num_int",             PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_big_int,         "json_num_big_int",         PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_decimal,         "json_num_decimal",         PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_basic,       "json_num_exp_basic",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_signed,      "json_num_exp_signed",      PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_decimal,     "json_num_exp_decimal",     PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_large,       "json_num_exp_large",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_mixed,           "json_num_mixed",           PARSE_SUCCESS, 1) ? success++ : fail++;
+    
+    // ---- INVALID NUMBERS ----
+    runTest(json_num_leading_zero,        "json_num_leading_zero",        PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_leading_zero_neg,    "json_num_leading_zero_neg",    PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_trailing_dot,        "json_num_trailing_dot",        PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_missing_int,         "json_num_missing_int",         PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_missing,         "json_num_exp_missing",         PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_sign_only,       "json_num_exp_sign_only",       PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_double,          "json_num_exp_double",          PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_malformed,       "json_num_exp_malformed",       PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_double_dot,          "json_num_double_dot",          PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_double_sign,         "json_num_double_sign",         PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_nan,                 "json_num_nan",                 PARSE_ERR_INCORRECT_VALUE_TYPE, 0) ? success++ : fail++;
+    runTest(json_num_inf,                 "json_num_inf",                 PARSE_ERR_INCORRECT_VALUE_TYPE, 0) ? success++ : fail++;
+    runTest(json_num_exp_oob,             "json_num_exp_oob",             PARSE_ERR_NUMBER_OVERFLOW_OR_UNDERFLOW, 0) ? success++ : fail++;
+    // ---- VALID UNICODE ----
+    runTest(json_unicode_escape_basic,     "unicode escape basic",     PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_mixed,     "unicode escape mixed",     PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_cyrillic,  "unicode escape cyrillic",  PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_cjk,       "unicode escape cjk",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_emoji,     "unicode escape emoji",     PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_array,     "unicode escape array",     PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_key,       "unicode escape key",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    
+    // ---- INVALID UNICODE ----
+    runTest(json_unicode_escape_short,         "unicode escape too short",        PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_nonhex,        "unicode escape non-hex",          PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_lone_high,     "unicode lone high surrogate",     PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_lone_low,      "unicode lone low surrogate",      PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_reversed,      "unicode reversed surrogate pair", PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_high_no_low,   "unicode high surrogate no low",   PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_eof,           "unicode escape cut by eof",       PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+
+    // ---- VALID KEY ESCAPES ----
+    runTest(json_key_escape_quote,        "key escape quote",        PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_backslash,    "key escape backslash",    PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_slash,        "key escape slash",        PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_control,      "key escape control",      PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_unicode_basic,       "key unicode basic",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_unicode_mixed,       "key unicode mixed",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_unicode_emoji,       "key unicode emoji",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_tab,          "key escape tab",          PARSE_SUCCESS, 1) ? success++ : fail++;
+    
+    // ---- INVALID KEY ESCAPES ----
+    runTest(json_key_escape_invalid,      "key invalid escape",      PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_short,       "key unicode too short",   PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_nonhex,      "key unicode non-hex",     PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_lone_high,   "key lone high surrogate", PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_lone_low,    "key lone low surrogate",  PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_reversed,    "key reversed surrogate",  PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_escape_eof,          "key escape eof",          PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_missing_quote,       "key missing quote",       PARSE_ERR_INCORRECT_KEY_VALUE_SEPARATOR,    0) ? success++ : fail++;
+
+    runTest(json_backslash, "escaped backslash", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_quote, "escaped quote", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_newline, "escaped newline", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_tab, "escaped tab", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode, "unicode escapes", PARSE_SUCCESS, 1) ? success++ : fail++;
+
+
+    const char* sampleJson = R"({
+        "str": "hello",
+        "int": 42,
+        "dbl": 3.14,
+        "bool": true,
+        "nullVal": null,
+        "obj": { "nested": 1 },
+        "arr": [1, 2, 3]
+    })";
+
+    const char* sampleUnicodeJson = R"({
+        "str": "\udb80\udeb5"
+    })";
+
+    runTestObjectGetters(sampleJson, "String test", "str", std::string("hello")) ? success++ : fail++;
+    runTestObjectGetters(sampleJson, "Int test", "int", 42LL) ? success++ : fail++;
+    runTestObjectGetters(sampleJson, "Double test", "dbl", 3.14) ? success++ : fail++;
+    runTestObjectGetters(sampleJson, "Bool test", "bool", true) ? success++ : fail++;
+    runTestObjectGetters(sampleJson, "Object test", "obj", (JsonObject*)nullptr) ? success++ : fail++;
+    runTestObjectGetters(sampleJson, "Array test", "arr", (JsonArray*)nullptr) ? success++ : fail++;
+
+    runTestArrayGetters(sampleJson, "Array index test", 0, "arr", 1LL);
+    runTestArrayGetters(sampleJson, "Array index test", 1, "arr", 2LL);
+    runTestArrayGetters(sampleJson, "Array index test", 2, "arr", 3LL);
+
+    runTestObjectGetters(sampleUnicodeJson, "Unicode escaping parsing", "str", std::string("󰊵")) ? success++ : fail++;
+
+    std::cout << "\x1B[92mSuccess: " << success<< "\033[0m\n";
+    std::cout << "\x1B[91mFail: " << fail << "\033[0m\n";
+    if(fail > 0) {
+        std::cout << "\x1B[91mTEST FAIL\033[0m\n"; 
+    } else {
+        std::cout << "\x1B[92mALL TESTS PASS\033[0m\n"; 
+    } 
 }
+
 
