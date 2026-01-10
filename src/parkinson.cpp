@@ -1,12 +1,10 @@
 #include <cctype>
 #include <cerrno>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <memory>
 #include <istream>
 #include <sstream>
 #include <string>
@@ -18,28 +16,42 @@
 #include <variant>
 #include "./parkinson.hpp"
 
+// Internal structure that indicated state of the parser
+enum parserState {
+    WAITING_FOR_OBJECT,
+    // KEY STATES
+    BEGIN_KEY,
+    WRITE_KEY,
+    KEY_WRITTEN,
+    // VALUE STATES
+    BEGIN_VALUE,
+    WRITE_VALUE,
+    VALUE_WRITTEN,   
+};
+
+using namespace json;
 
 // --- Declaration of misc functions ---
 bool processString(std::string &in, std::string &out);
 bool isWhole(const std::string& s);
 bool processNumber(std::string &in);
 void throwErrSyntax(const char *err); 
-int detectValueType(char ch, JsonTypes& type);
+int detectValueType(char ch, json::types& type);
 int isWhiteSpace(char ch);
 int checkStringEnd(char ch);
 int isNumber(char ch);
-int isContextArray(JsonArray* aCtx, JsonObject* oCtx);
-void constructExitCode(ParserExitCode& exitStruct, JsonParseRetVal code, std::string message, int lineNumber, int characterNumber);
+int isContextArray(json::array* aCtx, object* oCtx);
+void constructExitCode(exitCode& exitStruct, json::parseRetVal code, std::string message, int lineNumber, int characterNumber);
 
-int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
+int json::parseJson(std::istream &stream, object& object, exitCode& code) {
     char ch;
    
     int line = 1;
     int character = 1;
     parserState parserState = WAITING_FOR_OBJECT;
-    JsonObject* currentObject = &object;
-    JsonArray* currentArray = nullptr;
-    JsonTypes type; 
+    json::object* currentObject = &object;
+    json::array* currentArray = nullptr;
+    json::types type; 
     //Key temp string
     std::string tmpKey;
     std::string key;
@@ -139,13 +151,13 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                 if(type == JSON_NUMBER || type == JSON_BOOL || type == JSON_NULL) {
                     tmpVal += ch;
                 } else if(type == JSON_ARRAY) {
-                    JsonValue v;
+                    json::value v;
                     v.type = type;
-                    v.value = std::make_unique<JsonArray>();
+                    v.value = std::make_unique<json::array>();
                     if(isContextArray(currentArray, currentObject)) {
                         auto &insertionResult = currentArray->data.emplace_back(std::move(v));
-                        auto &arrayUptr = std::get<std::unique_ptr<JsonArray>>(insertionResult.value);
-                        JsonArray* arrayPtr = arrayUptr.get();
+                        auto &arrayUptr = std::get<std::unique_ptr<json::array>>(insertionResult.value);
+                        json::array* arrayPtr = arrayUptr.get();
                         arrayPtr->addParentArray(currentArray);
                         currentArray = arrayPtr;
                         currentObject = nullptr;
@@ -153,8 +165,8 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                     } else {
                         auto insertionResult = currentObject->data.emplace(key, std::move(v));
                         auto &insertedValue = insertionResult.first->second;
-                        auto &arrayUPtr = std::get<std::unique_ptr<JsonArray>>(insertedValue.value);
-                        JsonArray* arrayPtr = arrayUPtr.get();
+                        auto &arrayUPtr = std::get<std::unique_ptr<json::array>>(insertedValue.value);
+                        json::array* arrayPtr = arrayUPtr.get();
                         arrayPtr->addParentObject(currentObject);
                         currentArray = arrayPtr;
                         currentObject = nullptr;
@@ -164,13 +176,13 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                     key.clear();
                     break;
                 } else if(type == JSON_OBJECT) {
-                    JsonValue v;
+                    json::value v;
                     v.type = type;
-                    v.value = std::make_unique<JsonObject>();
+                    v.value = std::make_unique<json::object>();
                     if(isContextArray(currentArray, currentObject)) {
                         auto &insertResult = currentArray->data.emplace_back(std::move(v));
-                        auto &objUPtr = std::get<std::unique_ptr<JsonObject>>(insertResult.value);
-                        JsonObject* objPtr = objUPtr.get();
+                        auto &objUPtr = std::get<std::unique_ptr<json::object>>(insertResult.value);
+                        json::object* objPtr = objUPtr.get();
                         objPtr->addParentArray(currentArray);
                         currentObject = objPtr;
                         currentArray = nullptr;
@@ -178,8 +190,8 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                     } else {
                         auto insertResult = currentObject->data.emplace(key, std::move(v));
                         auto &insertedValue = insertResult.first->second;
-                        auto &objUPtr = std::get<std::unique_ptr<JsonObject>>(insertedValue.value);  
-                        JsonObject* objPtr = objUPtr.get(); 
+                        auto &objUPtr = std::get<std::unique_ptr<json::object>>(insertedValue.value);  
+                        json::object* objPtr = objUPtr.get(); 
                         objPtr->addParentObject(currentObject);
                         currentObject = objPtr;
                         parserState = BEGIN_KEY; 
@@ -197,7 +209,7 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                     // --- Writing string values ---
                     case JSON_STRING: {
                         if(checkStringEnd(ch) && !prevBS) {
-                            JsonValue v;
+                            json::value v;
                             v.type = type;
                             std::string processed;
                             if(!processString(tmpVal, processed)) {
@@ -230,7 +242,7 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                                 return 0;
                             }
                             bool isInt = isWhole(tmpVal);
-                            JsonValue v;
+                            json::value v;
                             v.type = type;
                             if(isInt) {
                                 errno = 0;
@@ -263,7 +275,7 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                     // --- Writing boolean variable ---
                     case JSON_BOOL: {
                         if(isWhiteSpace(ch) || ch == ',' || ch == ']' || ch == '}') {
-                            JsonValue v;
+                            json::value v;
                             v.type = type;
                             // If value in the buffer is "true" make true
                             if(tmpVal == std::string("true")) {
@@ -294,10 +306,10 @@ int parseJson(std::istream &stream, JsonObject& object, ParserExitCode& code) {
                     }
                     case JSON_NULL: {
                         if(isWhiteSpace(ch) || ch == ',' || ch == ']' || ch == '}') {
-                            JsonValue v;
+                            json::value v;
                             v.type = JSON_NULL;
                             if(tmpVal == std::string("null")) {
-                                v.value = false;
+                                v.value = std::monostate{};
                             } else {
                                 constructExitCode(code, PARSE_ERR_INCORRECT_NULL_VALUE_DEFINITION, "PARSE_ERR_INCORRECT_NULL_VALUE_DEFINITION", line, character);
                                 return 0;
@@ -490,7 +502,7 @@ int isWhiteSpace(char ch) {
         return 0;
 }
 
-int detectValueType(char ch, JsonTypes& type) {
+int detectValueType(char ch, json::types& type) {
     switch (ch) {
         case '"':
             type = JSON_STRING;
@@ -528,13 +540,13 @@ int detectValueType(char ch, JsonTypes& type) {
     return PARSE_SUCCESS;
 }
 
-int isContextArray(JsonArray *aCtx, JsonObject *oCtx) {
+int isContextArray(json::array *aCtx, object *oCtx) {
     int isctxarr = aCtx != nullptr && oCtx == nullptr;
     return isctxarr;
 }
 
-void constructExitCode(ParserExitCode &exitStruct, 
-                       JsonParseRetVal code, std::string message,
+void constructExitCode(exitCode &exitStruct, 
+                       json::parseRetVal code, std::string message,
                        int lineNumber, int characterNumber)
 {
     exitStruct.returnCode = code;
@@ -556,137 +568,3 @@ int isNumber(char ch) {
     if((ch >= '0' && ch <= '9') || ch == '-' || ch == '.' || ch == 'e' || ch == '+') return 1;
     else return 0;
 }
-
-// JSON OBJECT get functions
-
-bool JsonObject::exists(const std::string &key) {
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    return true;
-}
-
-bool JsonObject::getType(const std::string &key, JsonTypes &out) {
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    out = it->second.type;
-    return true;
-}
-
-bool JsonObject::get(const std::string &key, std::string &out) {
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    if(it->second.type != JSON_STRING) return false;
-    out = std::get<std::string>(it->second.value);
-    return true;
-}
-bool JsonObject::get(const std::string &key, long long &out) {
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    if(it->second.type != JSON_NUMBER) return false;
-    if(long long* x = std::get_if<long long>(&it->second.value)) {
-        out = *x;
-        return true;
-    }
-    return false;
-} 
-bool JsonObject::get(const std::string &key, double& out) {
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    if(it->second.type != JSON_NUMBER) return false;
-    if(double* x = std::get_if<double>(&it->second.value)) {
-        out = *x;
-        return true;
-    }
-    return false;   
-} 
-bool JsonObject::get(const std::string &key, bool &out) {
-   auto it = data.find(key);
-   if(it == data.end()) return false;
-   if(it->second.type != JSON_BOOL) return false;
-   out = std::get<bool>(it->second.value);
-   return true;
-} 
-bool JsonObject::isNull(const std::string &key) {
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    if(it->second.type == JSON_NULL) return true;
-    return false;
-} 
-bool JsonObject::get(const std::string &key, JsonObject *&out) {
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    if(it->second.type != JSON_OBJECT) return false;
-    out = std::get<std::unique_ptr<JsonObject>>(it->second.value).get();
-    return true;
-}
-
-bool JsonObject::get(const std::string &key, JsonArray *&out) {    
-    auto it = data.find(key);
-    if(it == data.end()) return false;
-    if(it->second.type != JSON_ARRAY) return false;
-    out = std::get<std::unique_ptr<JsonArray>>(it->second.value).get();
-    return true;
-}
-
-// Array getter functions
-
-bool JsonArray::getType(size_t index, JsonTypes &type) {
-    if(data.size() - 1 < index) return false;
-    type = data[index].type;
-    return true;
-}
-
-bool JsonArray::get(size_t index, std::string &out) {
-    if(data.size() - 1 < index) return false; 
-    if(data[index].type != JSON_STRING) return false;
-    out = std::get<std::string>(data[index].value);
-    return true;
-}
-
-bool JsonArray::get(size_t index, long long &out) {
-    if(data.size() - 1 < index) return false;
-    if(data[index].type != JSON_NUMBER) return false;
-    if(long long *x = std::get_if<long long>(&data[index].value)) {
-        out = *x;
-        return true;
-    }
-    return false;
-}
-
-bool JsonArray::get(size_t index, double &out) {
-    if(data.size() - 1 < index) return false;
-    if(data[index].type != JSON_NUMBER) return false;
-    if(double *x = std::get_if<double>(&data[index].value)) {
-        out = *x;
-        return true;
-    }
-    return false;   
-}
-
-bool JsonArray::get(size_t index, bool &out) {
-    if(data.size() - 1 < index) return false;
-    if(data[index].type != JSON_BOOL) return false;
-    out = std::get<bool>(data[index].value);
-    return true;
-}
-
-bool JsonArray::isNull(size_t index) {
-   if(data.size() - 1 < index) return false;
-   if(data[index].type == JSON_NULL) return true;
-   return false;
-}
-
-bool JsonArray::get(size_t index, JsonObject *&out) {
-    if(data.size() - 1 < index) return false;
-    if(data[index].type != JSON_OBJECT) return false;
-    out = std::get<std::unique_ptr<JsonObject>>(data[index].value).get();
-    return true;
-}
-
-bool JsonArray::get(size_t index, JsonArray *&out) {
-    if(data.size() - 1 < index) return false;
-    if(data[index].type != JSON_ARRAY) return false;
-    out = std::get<std::unique_ptr<JsonArray>>(data[index].value).get();
-    return true;
-}   
-

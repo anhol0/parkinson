@@ -5,9 +5,9 @@
 
 template<typename T> bool runTestObjectGetters(const char* json, const char* name, const std::string& key, const T& expected) { 
     std::istringstream in(json);
-    JsonObject obj;
-    ParserExitCode code;
-    int ok = parseJson(in, obj, code);
+    json::object obj;
+    json::exitCode code;
+    int ok = json::parseJson(in, obj, code);
     if(!ok) {
         std::cout << name << ": " << "\x1B[91mFAIL\033[0m\n";
         return false;
@@ -27,11 +27,11 @@ template<typename T> bool runTestObjectGetters(const char* json, const char* nam
     } else if constexpr (std::is_same_v<T, bool>) {
         bool out;
         ok = obj.get(key, out) && out == expected;
-    } else if constexpr (std::is_same_v<T, JsonObject*>) {
-        JsonObject* out;
+    } else if constexpr (std::is_same_v<T, json::object*>) {
+        json::object* out;
         ok = obj.get(key, out) && out != nullptr;
-    } else if constexpr (std::is_same_v<T, JsonArray*>) {
-        JsonArray* out;
+    } else if constexpr (std::is_same_v<T, json::array*>) {
+        json::array* out;
         ok = obj.get(key, out) && out != nullptr;
     }
 
@@ -42,14 +42,14 @@ template<typename T> bool runTestObjectGetters(const char* json, const char* nam
 
 template<typename T> bool runTestArrayGetters(const char* json, const char* name, const int index, const std::string& key, const T& expected) {
     std::istringstream in(json);
-    JsonObject obj;
-    ParserExitCode code;
-    int ok = parseJson(in, obj, code);
+    json::object obj;
+    json::exitCode code;
+    int ok = json::parseJson(in, obj, code);
     if(!ok) {
         std::cout << name << ": " << "\x1B[91mFAIL\033[0m\n";
         return false;
     }
-    JsonArray* arr;
+    json::array* arr;
     if(!obj.get(key, arr)) {
         std::cout << name << ": failed to get array '" << key << "'\n";
         return false;
@@ -74,11 +74,11 @@ template<typename T> bool runTestArrayGetters(const char* json, const char* name
 
 int main(void) {
     // Test quite function
-    auto runTest = [](const char* json, const char* name, JsonParseRetVal retCode, int shouldPass) {
+    auto runTest = [](const char* json, const char* name, json::parseRetVal retCode, int shouldPass) {
         std::istringstream in(json);
-        JsonObject obj;
-        ParserExitCode code;
-        int ok = parseJson(in, obj, code);
+        json::object obj;
+        json::exitCode code;
+        int ok = json::parseJson(in, obj, code);
         if(ok == shouldPass && code.returnCode == retCode) {
             std::cout << name << ": " <<"\x1B[92mPASS\033[0m\n";
             return true;
@@ -495,112 +495,112 @@ int main(void) {
     int success = 0;
     int fail = 0;
 
-    runTest(json_empty_object, "empty object", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_primitives, "all primitive types", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_mixed_array, "array with mixed types", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_nested_object, "nested object", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_basic, "unicode basic", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_latin, "unicode latin", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_cjk, "unicode cjk", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_emoji, "unicode emoji", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_key, "unicode key", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_array, "unicode array", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_empty_array, "empty array", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_empty_object, "empty object", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_primitives, "all primitive types", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_mixed_array, "array with mixed types", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_nested_object, "nested object", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_basic, "unicode basic", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_latin, "unicode latin", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_cjk, "unicode cjk", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_emoji, "unicode emoji", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_key, "unicode key", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_array, "unicode array", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_empty_array, "empty array", json::PARSE_SUCCESS, 1) ? success++ : fail++;
     
-    runTest(json_missing_brace, "missing closing brace", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
-    runTest(json_invalid_number, "invalid number", PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_invalid_number_alt, "invalid number alt", PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_invalid_bool, "invalid bool", PARSE_ERR_INCORRECT_BOOL_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_invalid_bool_alt, "invalid bool alt", PARSE_ERR_INCORRECT_BOOL_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_invalid_array_missing_comma, "array missing comma", PARSE_ERR_INCORRECT_VALUE_ENDING, 0) ? success++ : fail++;
-    runTest(json_invalid_array_trailing_comma, "array trailing comma", PARSER_ERR_COMMA_AFTER_LAST_ELEMENT, 0) ? success++ : fail++;
-    runTest(json_duplicate_keys, "duplicate keys", PARSE_ERR_DUPLICATE_ELEMENTS, 0) ? success++ : fail++;
+    runTest(json_missing_brace, "missing closing brace", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_invalid_number, "invalid number", json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_number_alt, "invalid number alt", json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_bool, "invalid bool", json::PARSE_ERR_INCORRECT_BOOL_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_bool_alt, "invalid bool alt", json::PARSE_ERR_INCORRECT_BOOL_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_invalid_array_missing_comma, "array missing comma", json::PARSE_ERR_INCORRECT_VALUE_ENDING, 0) ? success++ : fail++;
+    runTest(json_invalid_array_trailing_comma, "array trailing comma", json::PARSER_ERR_COMMA_AFTER_LAST_ELEMENT, 0) ? success++ : fail++;
+    runTest(json_duplicate_keys, "duplicate keys", json::PARSE_ERR_DUPLICATE_ELEMENTS, 0) ? success++ : fail++;
     
-    runTest(json_obj_missing_outer, "object missing outer brace", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
-    runTest(json_obj_missing_inner, "object missing inner brace", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
-    runTest(json_obj_extra_close, "object extra closing brace", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_obj_wrong_close, "object wrong closing type", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
-    runTest(json_obj_early_close, "object closed too early", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_obj_missing_outer, "object missing outer brace", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_obj_missing_inner, "object missing inner brace", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_obj_extra_close, "object extra closing brace", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_obj_wrong_close, "object wrong closing type", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_obj_early_close, "object closed too early", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
     
-    runTest(json_arr_missing_outer, "array missing outer bracket", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
-    runTest(json_arr_missing_inner, "array missing inner bracket", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
-    runTest(json_arr_extra_close, "array extra closing bracket", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
-    runTest(json_arr_wrong_close, "array wrong closing type", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
-    runTest(json_arr_early_close, "array closed too early", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_missing_outer, "array missing outer bracket", json::PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_missing_inner, "array missing inner bracket", json::PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_extra_close, "array extra closing bracket", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_wrong_close, "array wrong closing type", json::PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_arr_early_close, "array closed too early", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
     
-    runTest(json_mixed_obj_close_array_open, "object closed while array open", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
-    runTest(json_mixed_arr_close_obj_open, "array closed while object open", PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
-    runTest(json_mixed_multi_mismatch, "multiple nesting mismatch", PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_mixed_obj_close_array_open, "object closed while array open", json::PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
+    runTest(json_mixed_arr_close_obj_open, "array closed while object open", json::PARSE_ERR_INCORRECT_OBJECT_ENDING, 0) ? success++ : fail++;
+    runTest(json_mixed_multi_mismatch, "multiple nesting mismatch", json::PARSE_ERR_INCORRECT_ARRAY_ENDING, 0) ? success++ : fail++;
     
-    runTest(json_nested_valid, "proper nested object and array", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_nested_valid, "proper nested object and array", json::PARSE_SUCCESS, 1) ? success++ : fail++;
     
     // ---- VALID NUMBERS ----
-    runTest(json_num_int,             "json_num_int",             PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_num_big_int,         "json_num_big_int",         PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_num_decimal,         "json_num_decimal",         PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_num_exp_basic,       "json_num_exp_basic",       PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_num_exp_signed,      "json_num_exp_signed",      PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_num_exp_decimal,     "json_num_exp_decimal",     PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_num_exp_large,       "json_num_exp_large",       PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_num_mixed,           "json_num_mixed",           PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_int,             "json_num_int",             json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_big_int,         "json_num_big_int",         json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_decimal,         "json_num_decimal",         json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_basic,       "json_num_exp_basic",       json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_signed,      "json_num_exp_signed",      json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_decimal,     "json_num_exp_decimal",     json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_exp_large,       "json_num_exp_large",       json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_num_mixed,           "json_num_mixed",           json::PARSE_SUCCESS, 1) ? success++ : fail++;
     
     // ---- INVALID NUMBERS ----
-    runTest(json_num_leading_zero,        "json_num_leading_zero",        PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_leading_zero_neg,    "json_num_leading_zero_neg",    PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_trailing_dot,        "json_num_trailing_dot",        PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_missing_int,         "json_num_missing_int",         PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_exp_missing,         "json_num_exp_missing",         PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_exp_sign_only,       "json_num_exp_sign_only",       PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_exp_double,          "json_num_exp_double",          PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_exp_malformed,       "json_num_exp_malformed",       PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_double_dot,          "json_num_double_dot",          PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_double_sign,         "json_num_double_sign",         PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
-    runTest(json_num_nan,                 "json_num_nan",                 PARSE_ERR_INCORRECT_VALUE_TYPE, 0) ? success++ : fail++;
-    runTest(json_num_inf,                 "json_num_inf",                 PARSE_ERR_INCORRECT_VALUE_TYPE, 0) ? success++ : fail++;
-    runTest(json_num_exp_oob,             "json_num_exp_oob",             PARSE_ERR_NUMBER_OVERFLOW_OR_UNDERFLOW, 0) ? success++ : fail++;
+    runTest(json_num_leading_zero,        "json_num_leading_zero",        json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_leading_zero_neg,    "json_num_leading_zero_neg",    json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_trailing_dot,        "json_num_trailing_dot",        json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_missing_int,         "json_num_missing_int",         json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_missing,         "json_num_exp_missing",         json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_sign_only,       "json_num_exp_sign_only",       json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_double,          "json_num_exp_double",          json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_exp_malformed,       "json_num_exp_malformed",       json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_double_dot,          "json_num_double_dot",          json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_double_sign,         "json_num_double_sign",         json::PARSE_ERR_INCORRECT_NUMBER_DEFINITION, 0) ? success++ : fail++;
+    runTest(json_num_nan,                 "json_num_nan",                 json::PARSE_ERR_INCORRECT_VALUE_TYPE, 0) ? success++ : fail++;
+    runTest(json_num_inf,                 "json_num_inf",                 json::PARSE_ERR_INCORRECT_VALUE_TYPE, 0) ? success++ : fail++;
+    runTest(json_num_exp_oob,             "json_num_exp_oob",             json::PARSE_ERR_NUMBER_OVERFLOW_OR_UNDERFLOW, 0) ? success++ : fail++;
     // ---- VALID UNICODE ----
-    runTest(json_unicode_escape_basic,     "unicode escape basic",     PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_escape_mixed,     "unicode escape mixed",     PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_escape_cyrillic,  "unicode escape cyrillic",  PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_escape_cjk,       "unicode escape cjk",       PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_escape_emoji,     "unicode escape emoji",     PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_escape_array,     "unicode escape array",     PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode_escape_key,       "unicode escape key",       PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_basic,     "unicode escape basic",     json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_mixed,     "unicode escape mixed",     json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_cyrillic,  "unicode escape cyrillic",  json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_cjk,       "unicode escape cjk",       json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_emoji,     "unicode escape emoji",     json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_array,     "unicode escape array",     json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode_escape_key,       "unicode escape key",       json::PARSE_SUCCESS, 1) ? success++ : fail++;
     
     // ---- INVALID UNICODE ----
-    runTest(json_unicode_escape_short,         "unicode escape too short",        PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
-    runTest(json_unicode_escape_nonhex,        "unicode escape non-hex",          PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
-    runTest(json_unicode_escape_lone_high,     "unicode lone high surrogate",     PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
-    runTest(json_unicode_escape_lone_low,      "unicode lone low surrogate",      PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
-    runTest(json_unicode_escape_reversed,      "unicode reversed surrogate pair", PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
-    runTest(json_unicode_escape_high_no_low,   "unicode high surrogate no low",   PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
-    runTest(json_unicode_escape_eof,           "unicode escape cut by eof",       PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_short,         "unicode escape too short",        json::PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_nonhex,        "unicode escape non-hex",          json::PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_lone_high,     "unicode lone high surrogate",     json::PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_lone_low,      "unicode lone low surrogate",      json::PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_reversed,      "unicode reversed surrogate pair", json::PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_high_no_low,   "unicode high surrogate no low",   json::PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
+    runTest(json_unicode_escape_eof,           "unicode escape cut by eof",       json::PARSE_ERR_INCORRECT_UNICODE_DECLARATION, 0) ? success++ : fail++;
 
     // ---- VALID KEY ESCAPES ----
-    runTest(json_key_escape_quote,        "key escape quote",        PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_key_escape_backslash,    "key escape backslash",    PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_key_escape_slash,        "key escape slash",        PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_key_escape_control,      "key escape control",      PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_key_unicode_basic,       "key unicode basic",       PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_key_unicode_mixed,       "key unicode mixed",       PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_key_unicode_emoji,       "key unicode emoji",       PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_key_escape_tab,          "key escape tab",          PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_quote,        "key escape quote",        json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_backslash,    "key escape backslash",    json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_slash,        "key escape slash",        json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_control,      "key escape control",      json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_unicode_basic,       "key unicode basic",       json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_unicode_mixed,       "key unicode mixed",       json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_unicode_emoji,       "key unicode emoji",       json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_key_escape_tab,          "key escape tab",          json::PARSE_SUCCESS, 1) ? success++ : fail++;
     
     // ---- INVALID KEY ESCAPES ----
-    runTest(json_key_escape_invalid,      "key invalid escape",      PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
-    runTest(json_key_unicode_short,       "key unicode too short",   PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
-    runTest(json_key_unicode_nonhex,      "key unicode non-hex",     PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
-    runTest(json_key_unicode_lone_high,   "key lone high surrogate", PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
-    runTest(json_key_unicode_lone_low,    "key lone low surrogate",  PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
-    runTest(json_key_unicode_reversed,    "key reversed surrogate",  PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
-    runTest(json_key_escape_eof,          "key escape eof",          PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
-    runTest(json_key_missing_quote,       "key missing quote",       PARSE_ERR_INCORRECT_KEY_VALUE_SEPARATOR,    0) ? success++ : fail++;
+    runTest(json_key_escape_invalid,      "key invalid escape",      json::PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_short,       "key unicode too short",   json::PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_nonhex,      "key unicode non-hex",     json::PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_lone_high,   "key lone high surrogate", json::PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_lone_low,    "key lone low surrogate",  json::PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_unicode_reversed,    "key reversed surrogate",  json::PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_escape_eof,          "key escape eof",          json::PARSE_ERR_INCORRECT_UNICODE_ESC_IN_KEY, 0) ? success++ : fail++;
+    runTest(json_key_missing_quote,       "key missing quote",       json::PARSE_ERR_INCORRECT_KEY_VALUE_SEPARATOR,    0) ? success++ : fail++;
 
-    runTest(json_backslash, "escaped backslash", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_quote, "escaped quote", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_newline, "escaped newline", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_tab, "escaped tab", PARSE_SUCCESS, 1) ? success++ : fail++;
-    runTest(json_unicode, "unicode escapes", PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_backslash, "escaped backslash", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_quote, "escaped quote", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_newline, "escaped newline", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_tab, "escaped tab", json::PARSE_SUCCESS, 1) ? success++ : fail++;
+    runTest(json_unicode, "unicode escapes", json::PARSE_SUCCESS, 1) ? success++ : fail++;
 
 
     const char* sampleJson = R"({
@@ -621,8 +621,8 @@ int main(void) {
     runTestObjectGetters(sampleJson, "Int test", "int", 42LL) ? success++ : fail++;
     runTestObjectGetters(sampleJson, "Double test", "dbl", 3.14) ? success++ : fail++;
     runTestObjectGetters(sampleJson, "Bool test", "bool", true) ? success++ : fail++;
-    runTestObjectGetters(sampleJson, "Object test", "obj", (JsonObject*)nullptr) ? success++ : fail++;
-    runTestObjectGetters(sampleJson, "Array test", "arr", (JsonArray*)nullptr) ? success++ : fail++;
+    runTestObjectGetters(sampleJson, "Object test", "obj", (json::object*)nullptr) ? success++ : fail++;
+    runTestObjectGetters(sampleJson, "Array test", "arr", (json::array*)nullptr) ? success++ : fail++;
 
     runTestArrayGetters(sampleJson, "Array index test", 0, "arr", 1LL);
     runTestArrayGetters(sampleJson, "Array index test", 1, "arr", 2LL);
