@@ -43,7 +43,7 @@ int isNumber(char ch);
 int isContextArray(json::array* aCtx, object* oCtx);
 void constructExitCode(exitCode& exitStruct, json::parseRetVal code, std::string message, int lineNumber, int characterNumber);
 
-int json::parseJson(std::istream &stream, object& object, exitCode& code) {
+int json::parse(std::istream &stream, object& object, exitCode& code) {
     char ch;
    
     int line = 1;

@@ -1,5 +1,7 @@
 #include "parkinson.hpp"
 #include <cassert>
+#include <istream>
+#include <ostream>
 #include <sstream>
 #include <iostream>
 #include <type_traits>
@@ -8,7 +10,7 @@ template<typename T> bool runTestObjectGetters(const char* json, const char* nam
     std::istringstream in(json);
     json::object obj;
     json::exitCode code;
-    int ok = json::parseJson(in, obj, code);
+    int ok = json::parse(in, obj, code);
     if(!ok) {
         std::cout << name << ": " << "\x1B[91mFAIL\033[0m\n";
         return false;
@@ -45,7 +47,7 @@ template<typename T> bool runTestArrayGetters(const char* json, const char* name
     std::istringstream in(json);
     json::object obj;
     json::exitCode code;
-    int ok = json::parseJson(in, obj, code);
+    int ok = json::parse(in, obj, code);
     if(!ok) {
         std::cout << name << ": " << "\x1B[91mFAIL\033[0m\n";
         return false;
@@ -80,7 +82,7 @@ template<typename T> bool runTestObjectSetVal(const char* json, const char* name
 
     using U = std::decay_t<T>;
 
-    if (!json::parseJson(in, obj, code)) {
+    if (!json::parse(in, obj, code)) {
         std::cout << name << ": \x1B[91mFAIL (parse)\033[0m\n";
         return false;
     }
@@ -207,7 +209,7 @@ bool runTestArrayPush(
 
     using U = std::decay_t<T>;
 
-    if(!json::parseJson(in, root, code)) {
+    if(!json::parse(in, root, code)) {
         std::cout << name << ": \x1B[91mFAIL\033[0m (parse)\n";
         return false;
     }
@@ -301,7 +303,7 @@ bool runTestArraySet(
     json::object root;
     json::exitCode code;
 
-    if(!json::parseJson(in, root, code)) {
+    if(!json::parse(in, root, code)) {
         std::cout << name << ": \x1B[91mFAIL\033[0m (parse)\n";
         return false;
     }
@@ -462,6 +464,35 @@ bool runTestObjectCopy(const char* name) {
     return ok;
 }
 
+bool outputTest(const char* json, const char* name) {
+    std::istringstream in(json);
+    json::object object;
+    json::exitCode code;
+    int ok = json::parse(in, object, code);
+    if(!ok) {
+        std::cout << name << ": "
+            << "\x1B[91mFAIL\033[0m"
+            << "\n";
+        return false;
+    }
+    std::stringbuf str;
+    std::ostream stream(&str);
+    json::outputObject(stream, object);
+    code.reset();
+    object.clear();
+    std::istringstream s(str.str());
+    ok = json::parse(s, object, code);
+    if(!ok) {
+        std::cout << name << ": "
+            << "\x1B[91mFAIL\033[0m"
+            << "\n";
+        return false;
+    }
+    std::cout << name << ": "
+              << (ok ? "\x1B[92mPASS\033[0m" : "\x1B[91mFAIL\033[0m")
+              << "\n";
+    return ok;
+}
 
 int main(void) {
     // Test quite function
@@ -469,7 +500,7 @@ int main(void) {
         std::istringstream in(json);
         json::object obj;
         json::exitCode code;
-        int ok = json::parseJson(in, obj, code);
+        int ok = json::parse(in, obj, code);
         if(ok == shouldPass && code.returnCode == retCode) {
             std::cout << name << ": " <<"\x1B[92mPASS\033[0m\n";
             return true;
@@ -1126,6 +1157,7 @@ int main(void) {
     runTestArrayCopy("array::copy deep copy") ? success++ : fail++;
     runTestObjectCopy("object::copy deep copy") ? success++ : fail++;
 
+    outputTest(json_nested_object, "object output test") ? success++ : fail++;
 
     // -------------------- RESULTS --------------------
     std::cout << "TEST RESULTS\n";

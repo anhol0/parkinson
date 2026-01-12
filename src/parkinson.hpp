@@ -211,6 +211,6 @@ struct value {
 // Parser function 
 // Reads data from the stream 
 // Parses JSON, writes data to object and writes exit information to code 
-int parseJson(std::istream &stream, object& object, exitCode& code);
+int parse(std::istream &stream, object& object, exitCode& code);
 void outputObject(std::ostream &stream, const json::object& object, int indent = 0);
 }

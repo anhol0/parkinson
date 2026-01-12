@@ -51,7 +51,7 @@ void parseCheck(int exitCode, json::object &object, json::exitCode code) {
 void getObject(const char* name, json::object &object, json::exitCode &code) {
     std::ifstream stream;
     stream.open(name);
-    int retCode = json::parseJson(stream, object, code);
+    int retCode = json::parse(stream, object, code);
     parseCheck(retCode, object, code);
     stream.close();
     code.reset();
