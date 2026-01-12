@@ -7,7 +7,7 @@
 #include "parkinson.hpp"
 // JSON OBJECT get functions
 
-bool json::object::exists(const std::string key) {
+bool json::object::contains(const std::string key) {
     auto it = data.find(key);
     if(it == data.end()) return false;
     return true;
@@ -98,15 +98,18 @@ void json::object::setValue(const std::string key, bool value) {
 }
 
 void json::object::setValue(const std::string key, std::unique_ptr<json::object> value) {
+    value->addParentObject(this);
     data[key] = json::value{ std::move(value), JSON_OBJECT };
 }
 
 void json::object::setValue(const std::string key, std::unique_ptr<json::array> value) {
+    value->addParentObject(this);
     data[key] = json::value{ std::move(value), JSON_ARRAY };
 }
 
 json::object& json::object::emplaceObject(const std::string key) {
     auto obj = std::make_unique<json::object>();
+    obj->addParentObject(this);
     json::object &ref = *obj;
     setValue(key, std::move(obj));
     return ref;
@@ -114,6 +117,7 @@ json::object& json::object::emplaceObject(const std::string key) {
 
 json::array& json::object::emplaceArray(const std::string key) {
     auto arr = std::make_unique<json::array>();
+    arr->addParentObject(this);
     json::array &ref = *arr;
     setValue(key, std::move(arr));
     return ref;
@@ -150,12 +154,16 @@ std::unique_ptr<json::object> json::object::copy(json::object &original) {
             }
             case JSON_OBJECT: {
                 auto &origObj = *std::get<std::unique_ptr<json::object>>(val.value);
-                copyVal.value = json::object::copy(origObj);
+                auto copyObj = json::object::copy(origObj);
+                copyObj->addParentObject(object.get());
+                copyVal.value = std::move(copyObj);
                 break;
             }
             case JSON_ARRAY: {
                 auto &origArr = *std::get<std::unique_ptr<json::array>>(val.value);
-                copyVal.value = json::array::copy(origArr);
+                auto copyArr = json::array::copy(origArr);
+                copyArr->addParentObject(object.get());
+                copyVal.value = std::move(copyArr); 
                 break;
             }
         } 

@@ -83,7 +83,7 @@ struct object {
         parentArray = nullptr;
     } 
     // Checking if element exists in the object
-    bool exists(const std::string key);
+    bool contains(const std::string key);
     // Get type of the element of the object
     // If no such element exists, false is returned
     bool getType(const std::string key, types &out);
@@ -212,5 +212,5 @@ struct value {
 // Reads data from the stream 
 // Parses JSON, writes data to object and writes exit information to code 
 int parseJson(std::istream &stream, object& object, exitCode& code);
-
+void outputObject(std::ostream &stream, const json::object& object, int indent = 0);
 }

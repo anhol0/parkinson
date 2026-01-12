@@ -1,3 +1,4 @@
+#include <algorithm>
 #ifndef ARRAY_CPP
 #include <memory>
 #define ARRAY_CPP
@@ -87,15 +88,18 @@ void json::array::push(bool value) {
 }
 
 void json::array::push(std::unique_ptr<json::object> value) {
+    value->addParentArray(this);
     data.push_back(json::value{ std::move(value), JSON_OBJECT });
 }
 
 void json::array::push(std::unique_ptr<json::array> value) {
+    value->addParentArray(this);
     data.push_back(json::value{ std::move(value), JSON_ARRAY });
 }
 
 json::object& json::array::pushObject() {
     auto obj = std::make_unique<json::object>();
+    obj->addParentArray(this);
     json::object &ref = *obj;
     push(std::move(obj));
     return ref;
@@ -103,6 +107,7 @@ json::object& json::array::pushObject() {
 
 json::array& json::array::pushArray() {
    auto arr = std::make_unique<json::array>();
+   arr->addParentArray(this);
    json::array& ref = *arr;
    push(std::move(arr));
    return ref;
@@ -162,13 +167,16 @@ bool json::array::setNull(uint index) {
 
 json::object* json::array::emplaceObject(uint index) {
     if(data.size() - 1 < index) return nullptr;
-    data[index] = json::value{ std::make_unique<json::object>(), JSON_OBJECT };
+    auto obj = std::make_unique<json::object>();
+    obj->addParentArray(this);
+    data[index] = json::value{ std::move(obj), JSON_OBJECT };
     return std::get<std::unique_ptr<json::object>>(data[index].value).get();
 }
 
 json::array* json::array::emplaceArray(uint index) {
     if(data.size() - 1 < index) return nullptr;
-    data[index] = json::value{ std::make_unique<json::array>(), JSON_OBJECT };
+    auto arr = std::make_unique<json::array>();
+    data[index] = json::value{ std::move(arr), JSON_OBJECT };
     return std::get<std::unique_ptr<json::array>>(data[index].value).get();
 }
 
@@ -204,12 +212,16 @@ std::unique_ptr<json::array> json::array::copy(json::array &original) {
             }
             case JSON_OBJECT: {
                 auto &origObj = *std::get<std::unique_ptr<json::object>>(el.value);
-                val.value = json::object::copy(origObj);
+                auto copyObj = json::object::copy(origObj);
+                copyObj->addParentArray(array.get());
+                val.value = std::move(copyObj);
                 break;
             }
             case JSON_ARRAY: {
                 auto &origArr = *std::get<std::unique_ptr<json::array>>(el.value);
-                val.value = json::array::copy(origArr);
+                auto copyArr = json::array::copy(origArr);
+                copyArr->addParentArray(array.get());
+                val.value = std::move(copyArr);
                 break;
             }
         }

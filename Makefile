@@ -5,7 +5,7 @@ CXX=g++
 LDFLAGS = -L$(BUILDDIR) -lparkinson
 CXXFLAGS = -g -Wall -Wextra -std=c++20
 
-LIBSRC = $(SOURCEDIR)/parkinson.cpp $(SOURCEDIR)/object.cpp $(SOURCEDIR)/array.cpp
+LIBSRC = $(SOURCEDIR)/parkinson.cpp $(SOURCEDIR)/object.cpp $(SOURCEDIR)/array.cpp $(SOURCEDIR)/output.cpp
 LIBOBJ = $(patsubst $(SOURCEDIR)/%.cpp,$(BUILDDIR)/%.o,$(LIBSRC))
 LIBNAME = libparkinson.a
 
