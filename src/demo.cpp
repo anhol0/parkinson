@@ -11,7 +11,7 @@ using namespace json;
 
 int main(int argc, char **argv) {
     if(argc < 3) {
-        std::cout << "Usage: parkinson <filename.json>" << std::endl;
+        std::cout << "Usage: parkinson <filename.json> <filename2.json>" << std::endl;
         return 1;
     }
     const char* name = argv[1];
