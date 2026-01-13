@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 #include <istream>
@@ -65,7 +65,7 @@ struct exitCode {
 
 // Json object structure and its functions
 struct object {
-    std::map<std::string, value> data;
+    std::unordered_map<std::string, value> data;
     // Parents and children declaration
     object* parent = nullptr;
     array* parentArray = nullptr;

@@ -57,7 +57,8 @@ int json::parse(std::istream &stream, object& object, exitCode& code) {
     std::string key;
     // Temp values of the pair
     std::string tmpVal;
-    // Reading the stream of data and 
+    // Reading the stream of data and
+    bool prevBS = false;
     while(stream.get(ch)) {
         if(ch == '\n') {
             line++;
@@ -74,7 +75,6 @@ int json::parse(std::istream &stream, object& object, exitCode& code) {
         }
 
         switch (parserState) {
-            static bool prevBS = false;
             // BEGINNING OF THE OBJECT PARSING
             case WAITING_FOR_OBJECT: {
                 if(ch == '{') {   
