@@ -1,5 +1,5 @@
 #include "parkinson.hpp"
-
+#include <iomanip>
 void outputValue(std::ostream &stream, const json::value& value, int indent = 0);
 
 void outputIndent(std::ostream &stream, int indentationLvl) {
@@ -37,13 +37,15 @@ void outputValue(std::ostream &stream, const json::value& value, int indent) {
             stream << "\"" << std::get<std::string>(value.value) << "\""; 
             break;  
         case json::JSON_BOOL:
-            stream << std::get<bool>(value.value);
+            stream << (std::get<bool>(value.value) ? "true" : "false");
+            //stream << std::get<bool>(value.value);
             break;  
         case json::JSON_NUMBER:
             if(const long long* pInt = std::get_if<long long>(&value.value)) {
                 stream << *pInt;
             } else {
-                stream << std::get<double>(value.value);
+                stream << std::setprecision(17) << std::get<double>(value.value);
+                //stream << std::get<double>(value.value);
             }
             break;  
         case json::JSON_NULL:
